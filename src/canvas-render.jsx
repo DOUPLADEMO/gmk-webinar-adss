@@ -190,7 +190,7 @@ const renderCreative = (canvas, variant, settings, images, size) => {
     const pillY = isTall ? 60 : 50;
     const pillH = isTall ? 54 : 48;
     ctx.font = `700 ${isTall ? 24 : 22}px "Plus Jakarta Sans", sans-serif`;
-    const pillText = 'INGYENES WEBINÁR';
+    const pillText = settings.badgeText || 'INGYENES WEBINÁR';
     const textW = ctx.measureText(pillText).width;
     const padX = isTall ? 24 : 20;
     const pillW = textW + padX * 2;

@@ -115,9 +115,20 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
         />
       </Row>
 
+      <Row label="Jelvény szövege">
+        <input
+          type="text"
+          value={settings.badgeText || ''}
+          onChange={e => setSettings(s => ({ ...s, badgeText: e.target.value }))}
+          placeholder="INGYENES WEBINÁR"
+          className="text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#4B5458]"
+          style={{ fontFamily: '"DM Sans", sans-serif' }}
+        />
+      </Row>
+
       <div className="flex items-center justify-between py-1">
         <span className="text-[11.5px] text-[#B8C2C6]" style={{ fontFamily: '"DM Sans", sans-serif' }}>
-          "INGYENES WEBINÁR" jelvény
+          Jelvény látható
         </span>
         <Toggle on={settings.showBadge} onChange={v => setSettings(s => ({ ...s, showBadge: v }))} />
       </div>
@@ -269,4 +280,70 @@ Adj vissza CSAK JSON-t, semmi más, pontosan ebben a formában:
   );
 }
 
-Object.assign(window, { VariantList, SettingsPanel, AIAssistant, Toggle });
+function PortraitLibrary({ portraits, activeId, format, assignments, onUpload, onAssign, onRemove, onAutoAssign }) {
+  const inputRef = useRef(null);
+  const currentKey = `${activeId}_${format}`;
+  const assignedId = assignments[currentKey];
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-1.5">
+        <button onClick={() => inputRef.current?.click()}
+          className="flex-1 text-[11.5px] text-white bg-[#0E1417] hover:bg-[#111A1D] border border-[#1C262A] px-2.5 py-2 transition-colors">
+          + Portré feltöltés (több is)
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={onUpload} />
+        {portraits.length >= 2 && (
+          <button onClick={onAutoAssign}
+            className="text-[11px] text-[#2DB5A8] bg-transparent border border-[#2DB5A8] hover:bg-[#2DB5A8]/10 px-2 transition-colors">
+            Auto
+          </button>
+        )}
+      </div>
+
+      {portraits.length === 0 && (
+        <div className="text-[11px] text-[#6B777C] leading-snug border border-dashed border-[#1C262A] p-3">
+          Nincs portré. Tölts fel egyet vagy többet — a stúdió automatikusan a megfelelő méretűt választja a 1:1 és a 9:16 kreatívokhoz.
+        </div>
+      )}
+
+      {portraits.length > 0 && (
+        <>
+          <div className="text-[10px] uppercase tracking-[0.12em] text-[#6B777C]">
+            {activeId} · {format} → válassz portrét
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {portraits.map(p => {
+              const selected = assignedId === p.id;
+              return (
+                <div key={p.id} className="relative group">
+                  <button onClick={() => onAssign(p.id)}
+                    className="w-full aspect-square overflow-hidden transition-all"
+                    style={{
+                      border: '2px solid ' + (selected ? '#2DB5A8' : '#1C262A'),
+                      outline: selected ? '1px solid #2DB5A8' : 'none',
+                      outlineOffset: 2,
+                    }}>
+                    <img src={p.url} alt={p.name} className="w-full h-full object-cover" style={{ display: 'block' }} />
+                  </button>
+                  <button onClick={() => onRemove(p.id)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#0B1013] border border-[#1C262A] text-[#B8C2C6] hover:text-white hover:border-[#2DB5A8] text-[11px] leading-none opacity-0 group-hover:opacity-100 transition-opacity">
+                    ×
+                  </button>
+                  <div className="text-[9px] text-[#6B777C] mt-0.5 text-center">
+                    {p.w > p.h * 1.2 ? '▭' : p.h > p.w * 1.2 ? '▯' : '■'} {p.w}×{p.h}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-[10px] text-[#4B5458] leading-relaxed">
+            Az Auto gomb minden variánshoz automatikusan beosztja a portrékat formátum szerint: négyzetes képek a Feedhez, fekvő/álló képek a Storyhoz.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { VariantList, SettingsPanel, AIAssistant, Toggle, PortraitLibrary });
