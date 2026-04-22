@@ -481,9 +481,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   if (isLeaderboard) {
     // Very small: use minimal scale factors
     const smallScale = Math.min(W, H) / 50;
-    const pad = Math.max(4, Math.round(H * 0.2));
+    const pad = Math.max(5, Math.round(H * 0.25));
     const midY = H / 2;
-    const fs = Math.max(9, Math.round(H * 0.45));
+    const fs = Math.max(11, Math.round(H * 0.50));
     let x = pad;
 
     // Logo left (if present) — constrained height
@@ -492,7 +492,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
       x += lW + Math.round(H * 0.25);
     } else {
@@ -503,13 +505,13 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     }
 
     // CTA pill right with responsive sizing
-    const ctaFontSize = Math.max(8, Math.round(fs * 0.85));
+    const ctaFontSize = Math.max(10, Math.round(fs * 0.85));
     ctx.font = `700 ${ctaFontSize}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFontSize * 0.6);
-    const ctaPadY = Math.round(ctaFontSize * 0.3);
+    const ctaPadX = Math.round(ctaFontSize * 0.65);
+    const ctaPadY = Math.round(ctaFontSize * 0.35);
     const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.min(H - 4, ctaFontSize + ctaPadY * 2);
+    const ctaBtnH = Math.min(H - 3, ctaFontSize + ctaPadY * 2);
     const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
     ctx.fillStyle = theme.ctaBg;
@@ -533,7 +535,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   if (isBillboard) {
     // Scale based on smaller dimension
     const bScale = H / 250;
-    const pad = Math.round(H * 0.12);
+    const pad = Math.round(H * 0.14);
 
     // Logo top-left small
     if (images.logo) {
@@ -541,7 +543,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, pad, pad, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
 
@@ -621,7 +625,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lH = Math.min(lW / asp, Math.round(H * 0.12));
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
       yCursor += lH + Math.round(H * 0.02);
     }
@@ -709,7 +715,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
       logoBottomY = safeTop + lH;
     }

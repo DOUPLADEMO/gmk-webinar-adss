@@ -116,6 +116,9 @@ function App() {
 
   const activeVariant = variants.find(v => v.id === activeId) || variants[0];
 
+  // Current format object with dimensions
+  const currentFmt = AD_FORMATS.find(f => f.id === format) || AD_FORMATS[0];
+
   // Current portrait for this variant+format
   const currentPortrait = useMemo(() => {
     if (portraits.length === 0) return null;
@@ -149,9 +152,9 @@ function App() {
       canvas, activeVariant,
       { ...settings, focalY: activeFocalY },
       { logo: logoImg, bg: currentPortrait?.img || null },
-      format
+      currentFmt
     );
-  }, [fontsReady, activeVariant, settings, format, logoImg, currentPortrait, activeFocalY]);
+  }, [fontsReady, activeVariant, settings, format, logoImg, currentPortrait, activeFocalY, currentFmt]);
 
   const onLogoUpload = e => {
     const f = e.target.files?.[0];
