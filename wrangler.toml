@@ -1,0 +1,8 @@
+name = "gmk-krea-proxy"
+type = "javascript"
+main = "src/worker.js"
+compatibility_date = "2024-01-01"
+
+[env.production]
+route = "https://krea-proxy.gmk.workers.dev/*"
+zone_id = ""

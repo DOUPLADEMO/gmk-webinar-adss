@@ -1,6 +1,17 @@
 // Krea.ai API helpers — async job lifecycle
 
+// Default Cloudflare Worker proxy URL for CORS
+const KREA_WORKER_URL = 'https://gmk-krea-proxy.workers.dev';
 const KREA_BASE = 'https://api.krea.ai';
+
+// Get the proxy URL: window.KREA_PROXY > localStorage > Cloudflare Worker > direct API
+function getKreaBase() {
+  if (typeof window !== 'undefined' && window.KREA_BASE) return window.KREA_BASE;
+  const stored = localStorage.getItem('gmk_krea_base');
+  if (stored) return stored;
+  // Try worker if available, otherwise fall back to direct API
+  return KREA_WORKER_URL;
+}
 
 // Optional CORS proxy prefix — set window.KREA_PROXY to override
 // e.g. 'https://corsproxy.io/?' or your own proxy
@@ -15,10 +26,11 @@ function proxied(url) {
 
 // Submit a text-to-image job — tries with and without /v1 prefix
 async function kreaGenerateImage({ apiKey, model = 'nano-banana-pro', prompt, width = 1080, height = 1080, steps = 28 }) {
+  const base = getKreaBase();
   // Try primary endpoint first, then v1 prefix
   const endpoints = [
-    proxied(`${KREA_BASE}/generate/image/${model}`),
-    proxied(`${KREA_BASE}/v1/generate/image/${model}`),
+    proxied(`${base}/generate/image/${model}`),
+    proxied(`${base}/v1/generate/image/${model}`),
   ];
 
   let lastErr = null;
@@ -44,7 +56,7 @@ async function kreaGenerateImage({ apiKey, model = 'nano-banana-pro', prompt, wi
       }
       const data = await res.json();
       // attach which endpoint worked for polling
-      data._endpoint_base = url.replace(/\/generate.*/, '').replace(/\/v1.*/, '');
+      data._endpoint_base = base;
       return data;
     } catch (e) {
       if (e.message.startsWith('404')) { lastErr = e; continue; }
@@ -56,7 +68,7 @@ async function kreaGenerateImage({ apiKey, model = 'nano-banana-pro', prompt, wi
 
 // Poll a job until completed or failed. onProgress(status) called each tick.
 async function kreaWaitForJob({ apiKey, jobId, endpointBase, onProgress, maxWaitMs = 120000, intervalMs = 2500 }) {
-  const base = endpointBase || KREA_BASE;
+  const base = endpointBase || getKreaBase();
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
     const res = await fetch(proxied(`${base}/jobs/${jobId}`), {

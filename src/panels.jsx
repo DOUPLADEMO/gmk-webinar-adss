@@ -548,19 +548,21 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
         <div className="text-[10px] text-[#4B5458] mt-1">krea.ai/settings/api-tokens</div>
       </div>
 
-      {/* CORS proxy */}
+      {/* API Base URL */}
       <div>
-        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">CORS Proxy (ha szükséges)</div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">API Base URL</div>
         <input
           type="text"
           value={proxyUrl}
           onChange={e => saveProxy(e.target.value)}
-          placeholder="https://corsproxy.io/?"
+          placeholder="https://gmk-krea-proxy.workers.dev"
           className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
           style={{ fontFamily: 'monospace' }}
         />
         <div className="text-[9.5px] text-[#4B5458] mt-1 leading-snug">
-          Ha CORS hibát kapsz, add meg a proxy URL-t (pl. https://corsproxy.io/?). Az API URL elé kerül.
+          <strong>Ajánlott:</strong> Cloudflare Worker (https://gmk-krea-proxy.workers.dev) — ha nem működik, használj másikat: https://corsproxy.io/?
+          <br />
+          <strong>Deploy:</strong> wrangler deploy (lásd CLOUDFLARE_WORKER.md)
         </div>
       </div>
 
