@@ -682,6 +682,7 @@ function renderLegalText(ctx, W, H, S, isTiny) {
 
 // Renders AI-generated full creative — just image + logo
 const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat) => {
+  // Render with AI-generated background + full text overlay (same as renderCreative, but with AI image)
   let W, H;
   if (typeof sizeOrFormat === 'object' && sizeOrFormat.w) {
     W = sizeOrFormat.w; H = sizeOrFormat.h;
@@ -690,32 +691,108 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   }
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const S = Math.min(W,H)/1080;
+  const S = Math.min(W, H) / 1080;
 
-  ctx.fillStyle = '#0B1013'; ctx.fillRect(0,0,W,H);
-
+  // Draw AI-generated background (fill canvas with AI image)
   if (images.studioAI) {
-    const scale = Math.max(W/images.studioAI.width, H/images.studioAI.height);
-    const sw = images.studioAI.width*scale, sh = images.studioAI.height*scale;
-    ctx.drawImage(images.studioAI, (W-sw)/2, (H-sh)/2, sw, sh);
+    const scale = Math.max(W / images.studioAI.width, H / images.studioAI.height);
+    const sw = images.studioAI.width * scale, sh = images.studioAI.height * scale;
+    ctx.drawImage(images.studioAI, (W - sw) / 2, (H - sh) / 2, sw, sh);
   } else {
-    const isTall = H > W;
-    ctx.fillStyle = '#1C2529';
-    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1C2529'); g.addColorStop(1,'#0B1013');
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    ctx.font = `600 ${Math.round(Math.max(18,(isTall?38:32)*S))}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(45,181,168,0.45)';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('✦ Generálj AI kreatívát', W/2, H/2);
-    ctx.font = `400 ${Math.round(Math.max(13,(isTall?24:20)*S))}px "DM Sans", sans-serif`;
-    ctx.fillStyle='rgba(184,194,198,0.35)';
-    ctx.fillText('Nano Banana Pro — szöveg beleégetve', W/2, H/2+(isTall?54:44)*S);
-    ctx.textAlign='left';
+    // Fallback if no AI image: solid background
+    ctx.fillStyle = '#0B1013';
+    ctx.fillRect(0, 0, W, H);
   }
 
-  const sideP = Math.round(W*0.065);
-  const bottomSafe = Math.round(H*0.05);
-  renderLogo(ctx, images.logo, W, H, sideP, bottomSafe, S);
+  // Add dark overlay for text readability
+  const ov = ctx.createLinearGradient(0, 0, 0, H);
+  ov.addColorStop(0, 'rgba(11,16,19,0.35)');
+  ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
+  ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
+  ov.addColorStop(1, 'rgba(11,16,19,0.98)');
+  ctx.fillStyle = ov;
+  ctx.fillRect(0, 0, W, H);
+
+  const accent = settings.accent || '#2DB5A8';
+  const accentRGB = hexToRgb(accent);
+
+  // Determine text positioning based on format
+  const isTall = H > W * 1.3;
+  const sideP = Math.round(W * 0.065);
+  const topP = isTall ? Math.round(H * 0.12) : Math.round(H * 0.15);
+  const bottomP = Math.round(H * 0.15);
+
+  // ---------- BADGE ----------
+  if (settings.showBadge) {
+    const badgeY = topP;
+    const badgeText = 'INGYENES WEBINÁR';
+    ctx.font = `600 ${Math.round(10 * S)}px "Plus Jakarta Sans", sans-serif`;
+    ctx.fillStyle = accent;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const badgeMetrics = ctx.measureText(badgeText);
+    const badgePadX = Math.round(8 * S), badgePadY = Math.round(4 * S);
+    const badgeRectW = badgeMetrics.width + badgePadX * 2;
+    const badgeRectH = Math.round(18 * S);
+    drawRoundRect(ctx, sideP, badgeY, badgeRectW, badgeRectH, Math.round(2 * S));
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.fillStyle = '#0B0F10';
+    ctx.fillText(badgeText, sideP + badgePadX, badgeY + badgePadY);
+  }
+
+  // ---------- HEADLINE ----------
+  const headlineY = settings.showBadge ? topP + Math.round(50 * S) : topP;
+  ctx.font = `800 ${Math.round(52 * S)}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const headlineLines = wrapText(ctx, variant.headline, W - sideP * 2);
+  headlineLines.slice(0, isTall ? 3 : 2).forEach((line, i) => {
+    ctx.fillText(line, sideP, headlineY + i * Math.round(58 * S));
+  });
+
+  // ---------- SUBLINE ----------
+  if (variant.subline) {
+    const sublineY = headlineY + (isTall ? 200 : 140) * S;
+    ctx.font = `500 ${Math.round(20 * S)}px "DM Sans", sans-serif`;
+    ctx.fillStyle = 'rgba(184,194,198,0.8)';
+    ctx.textAlign = 'left';
+    const sublineLines = wrapText(ctx, variant.subline, W - sideP * 2);
+    sublineLines.slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, sideP, sublineY + i * Math.round(28 * S));
+    });
+  }
+
+  // ---------- CTA BUTTON ----------
+  const ctaY = H - bottomP - Math.round(50 * S);
+  const ctaText = settings.cta || 'Regisztrálj fel rá!';
+  ctx.font = `600 ${Math.round(14 * S)}px "Plus Jakarta Sans", sans-serif`;
+  const ctaMetrics = ctx.measureText(ctaText);
+  const ctaPadX = Math.round(16 * S), ctaPadY = Math.round(10 * S);
+  const ctaBtnW = ctaMetrics.width + ctaPadX * 2;
+  const ctaBtnH = Math.round(38 * S);
+  drawRoundRect(ctx, sideP, ctaY, ctaBtnW, ctaBtnH, Math.round(4 * S));
+  ctx.fillStyle = accent;
+  ctx.fill();
+  ctx.fillStyle = '#0B0F10';
+  ctx.fillText(ctaText, sideP + ctaPadX, ctaY + ctaPadY);
+
+  // ---------- DATE TEXT (optional) ----------
+  if (settings.dateText) {
+    const dateY = ctaY - Math.round(50 * S);
+    ctx.font = `400 ${Math.round(12 * S)}px "DM Sans", sans-serif`;
+    ctx.fillStyle = 'rgba(184,194,198,0.6)';
+    ctx.textAlign = 'left';
+    ctx.fillText(settings.dateText, sideP, dateY);
+  }
+
+  // ---------- LOGO ----------
+  const logoX = W - sideP - Math.round(80 * S);
+  const logoY = H - bottomP - Math.round(40 * S);
+  renderLogo(ctx, images.logo, W, H, logoX, logoY, S);
+
+  // ---------- LEGAL TEXT ----------
   renderLegalText(ctx, W, H, S, false);
 };
 
