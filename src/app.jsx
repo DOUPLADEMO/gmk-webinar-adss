@@ -61,7 +61,7 @@ function App() {
     } catch {}
     return defaultSettings();
   });
-  const [format, setFormat] = useState('1:1');
+  const [format, setFormat] = useState('fb_square');
   const [fontsReady, setFontsReady] = useState(false);
   const [logoImg, setLogoImg] = useState(null);
   const [portraits, setPortraits] = useState([]); // [{id, name, blob, w, h, img, url}]
@@ -128,18 +128,17 @@ function App() {
       const p = portraits.find(p => p.id === explicit);
       if (p) return p;
     }
-    // Auto-pick: for 1:1 prefer square; for 9:16 prefer landscape (cropped to tall works well)
-    const isTall = format === '9:16';
+    // Auto-pick: prefer portrait that matches format aspect ratio
+    const formatRatio = currentFmt.w / currentFmt.h;
     const sorted = [...portraits].sort((a, b) => {
       const ra = a.w / a.h;
       const rb = b.w / b.h;
-      // 1:1 wants ratio ~1, 9:16 wants ratio >1 but with room at top
-      const targetA = isTall ? Math.abs(ra - 1.5) : Math.abs(ra - 1.0);
-      const targetB = isTall ? Math.abs(rb - 1.5) : Math.abs(rb - 1.0);
+      const targetA = Math.abs(ra - formatRatio);
+      const targetB = Math.abs(rb - formatRatio);
       return targetA - targetB;
     });
     return sorted[0];
-  }, [portraits, activeId, format, assignments]);
+  }, [portraits, activeId, format, assignments, currentFmt]);
 
   const activeFocalY = focalY[`${activeId}_${format}`] ?? 0.3;
 
@@ -235,14 +234,13 @@ function App() {
       const p = portraits.find(p => p.id === explicit);
       if (p) return p.img;
     }
-    // fallback auto-pick (same logic)
+    // fallback auto-pick
     if (!portraits.length) return null;
-    const isTall = fmt === '9:16';
+    const fmtObj = AD_FORMATS.find(f => f.id === fmt);
+    const formatRatio = fmtObj ? (fmtObj.w / fmtObj.h) : 1;
     const sorted = [...portraits].sort((a, b) => {
       const ra = a.w / a.h, rb = b.w / b.h;
-      return isTall
-        ? Math.abs(ra - 1.5) - Math.abs(rb - 1.5)
-        : Math.abs(ra - 1.0) - Math.abs(rb - 1.0);
+      return Math.abs(ra - formatRatio) - Math.abs(rb - formatRatio);
     });
     return sorted[0].img;
   };
@@ -285,7 +283,7 @@ function App() {
   };
 
   const previewMaxW = 440;
-  const aspectH = format === '1:1' ? previewMaxW : previewMaxW * (1920/1080);
+  const aspectH = previewMaxW * (currentFmt.h / currentFmt.w);
   const aspectW = previewMaxW;
 
   return (
@@ -332,22 +330,33 @@ function App() {
 
         {/* CENTER */}
         <main className="flex flex-col items-center px-6 py-6 gap-4">
-          <div className="flex items-center gap-1 p-1 bg-[#0E1417] border border-[#1C262A]">
-            {[
-              { id: '1:1', label: '1:1 · Feed · 1080×1080' },
-              { id: '9:16', label: '9:16 · Story · 1080×1920' },
-            ].map(t => (
-              <button key={t.id}
-                onClick={() => setFormat(t.id)}
-                className="px-4 py-1.5 text-[11.5px] transition-colors"
-                style={{
-                  fontWeight: 500,
-                  background: format === t.id ? '#2DB5A8' : 'transparent',
-                  color: format === t.id ? '#0B0F10' : '#B8C2C6',
-                }}>
-                {t.label}
-              </button>
-            ))}
+          <div className="w-full max-w-[520px]">
+            {(() => {
+              const groups = Array.from(new Map(AD_FORMATS.map(f => [f.group, true])).keys());
+              return groups.map(groupName => {
+                const groupFormats = AD_FORMATS.filter(f => f.group === groupName);
+                return (
+                  <div key={groupName} className="mb-3">
+                    <div className="text-[9.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">{groupName}</div>
+                    <div className="flex flex-wrap gap-1 p-1 bg-[#0E1417] border border-[#1C262A]">
+                      {groupFormats.map(fmt => (
+                        <button key={fmt.id}
+                          onClick={() => setFormat(fmt.id)}
+                          className="px-3 py-1.5 text-[10px] transition-colors flex items-center gap-1"
+                          style={{
+                            fontWeight: 500,
+                            background: format === fmt.id ? '#2DB5A8' : 'transparent',
+                            color: format === fmt.id ? '#0B0F10' : '#B8C2C6',
+                          }}>
+                          <span>{fmt.icon}</span>
+                          <span className="hidden sm:inline">{fmt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           <div className="relative" style={{ width: aspectW, height: aspectH, boxShadow: '0 30px 80px -20px rgba(0,0,0,0.7), 0 0 0 1px #141B1F' }}>
@@ -362,7 +371,7 @@ function App() {
           <div className="flex items-center gap-5 text-[10.5px] text-[#6B777C]" style={{ letterSpacing: '0.08em' }}>
             <span>VARIÁNS <span className="text-[#2DB5A8]">{activeVariant.id}</span></span>
             <span>•</span>
-            <span>{format === '1:1' ? '1080×1080' : '1080×1920'}</span>
+            <span>{currentFmt.w}×{currentFmt.h}</span>
             <span>•</span>
             <span>LAYOUT: {LAYOUT_OPTIONS.find(l => l.id === settings.layout)?.label.toUpperCase()}</span>
             {currentPortrait && <><span>•</span><span className="truncate max-w-[140px]">📷 {currentPortrait.name.replace(/\.[^.]+$/,'')}</span></>}
