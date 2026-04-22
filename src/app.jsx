@@ -248,7 +248,28 @@ function App() {
   const onCreativeGenerated = (img, modeType, fallbackUrl) => {
     const key = `${activeId}_${format}`;
     if (modeType === 'studio') {
-      if (img) setStudioAIImgs(prev => ({ ...prev, [key]: img }));
+      // Store the image object if loaded, otherwise try to load from fallback URL
+      if (img) {
+        setStudioAIImgs(prev => ({ ...prev, [key]: img }));
+      } else if (fallbackUrl) {
+        // If Image object failed to load, try fetching as blob and creating image from blob
+        fetch(fallbackUrl)
+          .then(res => res.blob())
+          .then(blob => {
+            const blobUrl = URL.createObjectURL(blob);
+            const fallImg = new Image();
+            fallImg.onload = () => {
+              setStudioAIImgs(prev => ({ ...prev, [key]: fallImg }));
+              URL.revokeObjectURL(blobUrl);
+            };
+            fallImg.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+              console.warn('Failed to load AI image from fallback URL');
+            };
+            fallImg.src = blobUrl;
+          })
+          .catch(e => console.warn('Failed to fetch AI image blob:', e));
+      }
     } else {
       if (img) setCreativeImgs(prev => ({ ...prev, [key]: img }));
     }

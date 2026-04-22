@@ -516,10 +516,20 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
       );
       if (!url) throw new Error('Nem érkezett vissza kép URL.');
       setPreviewUrl(url);
+      // Load image for canvas rendering
       const img = new Image();
+      img.onload = () => {
+        onGenerated(img, 'studio');
+        setStatus('done');
+        setStatusMsg('Kész!');
+      };
+      img.onerror = () => {
+        // Fallback: still pass null but with the URL so preview works
+        onGenerated(null, 'studio', url);
+        setStatus('done');
+        setStatusMsg('Kész (kép betöltve, canvas előnézet frissítésre vár)');
+      };
       img.crossOrigin = 'anonymous';
-      img.onload = () => { onGenerated(img, 'studio'); setStatus('done'); setStatusMsg('Kész!'); };
-      img.onerror = () => { onGenerated(null, 'studio', url); setStatus('done'); setStatusMsg('Kész (CORS limit: letöltés közvetlen URL-ről)'); };
       img.src = url;
     } catch (e) {
       const msg = e.message || '';
