@@ -468,6 +468,7 @@ function defaultSettings() {
     dateText: '',
     accent: '#2DB5A8',
     theme: 'dark',
+    headlineColor: '',
   };
 }
 

@@ -43,11 +43,12 @@ function hexToRgb(hex) {
 // Theme colors — dark (default) or light
 function getTheme(settings) {
   const accent = settings.accent || '#2DB5A8';
+  const headlineOverride = settings.headlineColor || null;
   if (settings.theme === 'light') {
     return {
       isLight: true,
       // Text colors
-      textPrimary: '#0B1013',       // headline
+      textPrimary: headlineOverride || '#0B1013',       // headline
       textSecondary: '#4B5458',     // label
       textSubline: accent,          // subline (keep accent)
       // Base background (fallback when no image)
@@ -105,7 +106,7 @@ function getTheme(settings) {
   // Dark theme (default)
   return {
     isLight: false,
-    textPrimary: '#FFFFFF',
+    textPrimary: headlineOverride || '#FFFFFF',
     textSecondary: '#B8C2C6',
     textSubline: accent,
     bgGradientTop: '#1C2529',

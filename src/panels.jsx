@@ -148,6 +148,36 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
         </div>
       </Row>
 
+      <Row label="Felirat szín">
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={settings.headlineColor || '#FFFFFF'}
+            onChange={e => setSettings(s => ({ ...s, headlineColor: e.target.value }))}
+            className="w-10 h-8 bg-transparent border border-[#1C262A] cursor-pointer"
+          />
+          <div className="flex gap-1">
+            <button
+              onClick={() => setSettings(s => ({ ...s, headlineColor: '' }))}
+              className="px-2 h-6 text-[10px] border"
+              style={{
+                fontFamily: '"DM Sans", sans-serif',
+                background: !settings.headlineColor ? '#2DB5A8' : '#0E1417',
+                color: !settings.headlineColor ? '#0B0F10' : '#B8C2C6',
+                borderColor: !settings.headlineColor ? '#2DB5A8' : '#1C262A',
+              }}
+              title="Téma alapértelmezett"
+            >AUTO</button>
+            {['#FFFFFF', '#0B1013', '#2DB5A8', '#E8F1F0'].map(c => (
+              <button key={c} onClick={() => setSettings(s => ({ ...s, headlineColor: c }))}
+                className="w-6 h-6 border"
+                style={{ background: c, borderColor: settings.headlineColor === c ? '#FFFFFF' : '#1C262A' }}
+              />
+            ))}
+          </div>
+        </div>
+      </Row>
+
       <Row label="Sötét / Világos">
         <div className="grid grid-cols-2 gap-1">
           <button
