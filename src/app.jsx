@@ -464,6 +464,7 @@ function defaultSettings() {
     grain: true,
     dateText: '',
     accent: '#2DB5A8',
+    theme: 'dark',
   };
 }
 

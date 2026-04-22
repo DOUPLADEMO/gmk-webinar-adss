@@ -40,6 +40,124 @@ function hexToRgb(hex) {
   return m ? {r:parseInt(m[0],16),g:parseInt(m[1],16),b:parseInt(m[2],16)} : {r:45,g:181,b:168};
 }
 
+// Theme colors — dark (default) or light
+function getTheme(settings) {
+  const accent = settings.accent || '#2DB5A8';
+  if (settings.theme === 'light') {
+    return {
+      isLight: true,
+      // Text colors
+      textPrimary: '#0B1013',       // headline
+      textSecondary: '#4B5458',     // label
+      textSubline: accent,          // subline (keep accent)
+      // Base background (fallback when no image)
+      bgGradientTop: '#FFFFFF',
+      bgGradientBottom: '#E8ECEE',
+      bgSolid: '#F5F7F8',
+      // Overlay colors for background images (light, lets image show through)
+      overlayGradient: [
+        [0,    'rgba(255,255,255,0.3)'],
+        [0.35, 'rgba(255,255,255,0.45)'],
+        [0.7,  'rgba(255,255,255,0.75)'],
+        [1,    'rgba(255,255,255,0.92)'],
+      ],
+      overlayFull: [
+        [0,    'rgba(255,255,255,0.4)'],
+        [0.5,  'rgba(255,255,255,0.55)'],
+        [1,    'rgba(255,255,255,0.8)'],
+      ],
+      overlayBottomFade: [
+        [0,   'rgba(255,255,255,0)'],
+        [0.5, 'rgba(255,255,255,0.6)'],
+        [1,   'rgba(255,255,255,1)'],
+      ],
+      overlaySideFade: [
+        [0,   '#FFFFFF'],
+        [0.5, 'rgba(255,255,255,0.65)'],
+        [1,   'rgba(255,255,255,0)'],
+      ],
+      overlayBottomShadow: [
+        [0, 'rgba(255,255,255,0)'],
+        [1, 'rgba(255,255,255,0.7)'],
+      ],
+      overlayTopVignette: [
+        [0, 'rgba(255,255,255,0.55)'],
+        [1, 'rgba(255,255,255,0)'],
+      ],
+      solidSide: '#FFFFFF',
+      // CTA
+      ctaBg: '#0B1013',
+      ctaText: '#FFFFFF',
+      // Badge
+      badgeBg: accent,
+      badgeText: '#FFFFFF',
+      // Legal text
+      legalBackingFill: 'rgba(255,255,255,0.7)',
+      legalText: 'rgba(11,16,19,0.85)',
+      // Grain
+      grainColor: '#000',
+      // Drop shadow for headline over image
+      textShadow: 'rgba(255,255,255,0.6)',
+      // Logo opacity
+      logoAlpha: 0.95,
+    };
+  }
+  // Dark theme (default)
+  return {
+    isLight: false,
+    textPrimary: '#FFFFFF',
+    textSecondary: '#B8C2C6',
+    textSubline: accent,
+    bgGradientTop: '#1C2529',
+    bgGradientBottom: '#0B1013',
+    bgSolid: '#0B1013',
+    overlayGradient: [
+      [0,    'rgba(11,16,19,0.35)'],
+      [0.35, 'rgba(11,16,19,0.5)'],
+      [0.7,  'rgba(11,16,19,0.88)'],
+      [1,    'rgba(11,16,19,0.98)'],
+    ],
+    overlayFull: [
+      [0,   'rgba(11,16,19,0.4)'],
+      [0.5, 'rgba(11,16,19,0.65)'],
+      [1,   'rgba(11,16,19,0.85)'],
+    ],
+    overlayBottomFade: [
+      [0,   'rgba(11,16,19,0)'],
+      [0.5, 'rgba(11,16,19,0.6)'],
+      [1,   'rgba(11,16,19,1)'],
+    ],
+    overlaySideFade: [
+      [0,   '#0B1013'],
+      [0.5, 'rgba(11,16,19,0.65)'],
+      [1,   'rgba(11,16,19,0)'],
+    ],
+    overlayBottomShadow: [
+      [0, 'rgba(11,16,19,0)'],
+      [1, 'rgba(11,16,19,0.7)'],
+    ],
+    overlayTopVignette: [
+      [0, 'rgba(11,16,19,0.55)'],
+      [1, 'rgba(11,16,19,0)'],
+    ],
+    solidSide: '#0B1013',
+    ctaBg: accent,
+    ctaText: '#0B1013',
+    badgeBg: accent,
+    badgeText: '#0B1013',
+    legalBackingFill: 'rgba(11,16,19,0.55)',
+    legalText: 'rgba(255,255,255,0.85)',
+    grainColor: '#FFF',
+    textShadow: 'rgba(0,0,0,0.5)',
+    logoAlpha: 0.85,
+  };
+}
+
+function applyGradientStops(gradient, stops) {
+  for (const [pos, color] of stops) gradient.addColorStop(pos, color);
+  return gradient;
+}
+
 // Classify format shape for layout decisions
 function classifyFormat(W, H) {
   const ratio = W / H;
@@ -71,6 +189,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   const accentRGB = hexToRgb(accent);
   const layout = settings.layout || 'hero';
   const focalY = settings.focalY ?? 0.35;
+  const theme = getTheme(settings);
 
   // Scale factor relative to 1080px reference
   const S = Math.min(W, H) / 1080;
@@ -78,8 +197,8 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // ---------- BASE BACKGROUND ----------
   const baseGrad = ctx.createLinearGradient(0, 0, W * (isWide ? 1 : 0), H);
-  baseGrad.addColorStop(0, '#1C2529');
-  baseGrad.addColorStop(1, '#0B1013');
+  baseGrad.addColorStop(0, theme.bgGradientTop);
+  baseGrad.addColorStop(1, theme.bgGradientBottom);
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -94,10 +213,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
     if (layout === 'full-bleed') {
       drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
       const ov = ctx.createLinearGradient(0, 0, 0, H);
-      ov.addColorStop(0, 'rgba(11,16,19,0.35)');
-      ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
-      ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
-      ov.addColorStop(1, 'rgba(11,16,19,0.98)');
+      applyGradientStops(ov, theme.overlayGradient);
       ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
     } else if (layout === 'hero') {
       if (isTall) {
@@ -105,14 +221,12 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
         const photoH = Math.round(H * 0.72);
         drawCoverImage(ctx, images.bg, 0, 0, W, photoH, 0.5, focalY);
         const fade = ctx.createLinearGradient(0, photoH*0.45, 0, photoH);
-        fade.addColorStop(0, 'rgba(11,16,19,0)');
-        fade.addColorStop(0.5, 'rgba(11,16,19,0.6)');
-        fade.addColorStop(1, 'rgba(11,16,19,1)');
+        applyGradientStops(fade, theme.overlayBottomFade);
         ctx.fillStyle = fade; ctx.fillRect(0, photoH*0.45, W, photoH*0.55+1);
-        ctx.fillStyle = '#0B1013'; ctx.fillRect(0, photoH, W, H-photoH);
+        ctx.fillStyle = theme.solidSide; ctx.fillRect(0, photoH, W, H-photoH);
         // top vignette
         const topV = ctx.createLinearGradient(0,0,0,H*0.18);
-        topV.addColorStop(0,'rgba(11,16,19,0.55)'); topV.addColorStop(1,'rgba(11,16,19,0)');
+        applyGradientStops(topV, theme.overlayTopVignette);
         ctx.fillStyle = topV; ctx.fillRect(0,0,W,H*0.18);
       } else {
         // Shape-aware split: square → photo 52%, landscape → photo 55%
@@ -120,14 +234,12 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
         const photoX = Math.round(W * (1 - photoFrac));
         drawCoverImage(ctx, images.bg, photoX, 0, W-photoX, H, 0.5, focalY);
         const fade = ctx.createLinearGradient(photoX-60, 0, photoX+300, 0);
-        fade.addColorStop(0, '#0B1013');
-        fade.addColorStop(0.5, 'rgba(11,16,19,0.65)');
-        fade.addColorStop(1, 'rgba(11,16,19,0)');
+        applyGradientStops(fade, theme.overlaySideFade);
         ctx.fillStyle = fade; ctx.fillRect(photoX-60, 0, 360, H);
-        ctx.fillStyle = '#0B1013'; ctx.fillRect(0, 0, photoX-60, H);
+        ctx.fillStyle = theme.solidSide; ctx.fillRect(0, 0, photoX-60, H);
         // Bottom shadow
         const bot = ctx.createLinearGradient(0, H-H*0.22, 0, H);
-        bot.addColorStop(0,'rgba(11,16,19,0)'); bot.addColorStop(1,'rgba(11,16,19,0.7)');
+        applyGradientStops(bot, theme.overlayBottomShadow);
         ctx.fillStyle = bot; ctx.fillRect(0, H-H*0.22, W, H*0.22);
       }
     } else if (layout === 'circle') {
@@ -180,7 +292,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // Logo top-left (small, discrete) — render FIRST so we know its height
   const logoBottomSafe = Math.round(H * 0.05);
-  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Badge — position BELOW logo if logo present, else use old top position
   if (settings.showBadge !== false) {
@@ -193,10 +305,10 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
     const ptw = ctx.measureText('INGYENES WEBINÁR').width;
     const padX = Math.round(18 * S);
     const pillW = ptw + padX * 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.badgeBg;
     drawRoundRect(ctx, pillX, pillY, pillW, pillH, 4);
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.badgeText;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText('INGYENES WEBINÁR', pillX+padX, pillY+pillH/2+1);
   }
@@ -216,7 +328,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   // Platform: 'fb' = allow subline/label, 'ads' = headline + CTA only (big), else 'fb'
   const platform = settings.platform || 'fb';
   const isAds = platform === 'ads';
-  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Headline size: MUCH bigger on 'ads' (short text, high impact)
   const hSizeFinal = isAds
@@ -251,9 +363,9 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // Headline
   ctx.font = `800 ${hSizeFinal}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   if (images.bg && (layout==='full-bleed'||(!isTall&&layout==='hero'))) {
-    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=18;
+    ctx.shadowColor = theme.textShadow; ctx.shadowBlur = 18;
   }
   for (const line of hLines) { ctx.fillText(line, sideP, cy); cy+=hLineH; }
   ctx.shadowBlur=0; ctx.shadowColor='transparent';
@@ -262,7 +374,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   if (sLines.length) {
     cy += g1 - hLineH*0.1;
     ctx.font = `500 ${sSize}px "DM Sans", sans-serif`;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.textSubline;
     for (const line of sLines) { ctx.fillText(line, sideP, cy); cy+=sLineH; }
   }
 
@@ -270,7 +382,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   if (labLines.length) {
     cy += g2 - (sLines.length?sLineH:hLineH)*0.1;
     ctx.font = `500 ${labSize}px "DM Sans", sans-serif`;
-    ctx.fillStyle = '#B8C2C6';
+    ctx.fillStyle = theme.textSecondary;
     for (const line of labLines) { ctx.fillText(line, sideP, cy); cy+=labLineH; }
   }
 
@@ -292,28 +404,29 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   const ctaBtnW = ctaTW + ctaPadX * 2;
   const ctaBtnH = ctaSizeFinal + ctaPadY * 2;
   const ctaRadius = Math.round(ctaBtnH * 0.5); // fully rounded pill
-  // Subtle teal glow
+  // Subtle glow
   ctx.save();
-  ctx.shadowColor = `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.35)`;
+  const ctaShadowRGB = theme.isLight ? {r:11,g:16,b:19} : accentRGB;
+  ctx.shadowColor = `rgba(${ctaShadowRGB.r},${ctaShadowRGB.g},${ctaShadowRGB.b},0.35)`;
   ctx.shadowBlur = Math.round(24 * TS);
   ctx.shadowOffsetY = Math.round(8 * TS);
-  ctx.fillStyle = accent;
+  ctx.fillStyle = theme.ctaBg;
   drawRoundRect(ctx, sideP, cy, ctaBtnW, ctaBtnH, ctaRadius);
   ctx.fill();
   ctx.restore();
   // Label
-  ctx.fillStyle = '#0B1013';
+  ctx.fillStyle = theme.ctaText;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(ctaText, sideP + ctaPadX, cy + ctaBtnH / 2 + 1);
   ctx.textBaseline = 'top';
 
   // Legal text bottom-right (mandatory)
-  renderLegalText(ctx, W, H, S, false);
+  renderLegalText(ctx, W, H, S, false, theme);
 
   // Grain
   if (settings.grain !== false && W*H < 3000000) {
-    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = '#FFF';
+    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = theme.grainColor;
     const N = Math.floor((W*H)/5000);
     for (let i=0;i<N;i++) ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
     ctx.restore();
@@ -333,27 +446,26 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   const isBillboard = !isLeaderboard && !isTall && ratio > 2.5;
   // Everything else here is a small rect (300×250, 336×280)
   const accentRGB = hexToRgb(accent);
+  const theme = getTheme(settings);
 
-  // Background — use portrait/AI image if available, otherwise dark gradient
+  // Background — use portrait/AI image if available, otherwise theme gradient
   if (images.bg) {
     // Draw background image with focal point
     const focalY = settings.focalY ?? 0.35;
     drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
-    // Add dark overlay for text readability
+    // Add overlay for text readability (dark or light depending on theme)
     const ov = ctx.createLinearGradient(0, 0, 0, H);
-    ov.addColorStop(0, 'rgba(11,16,19,0.4)');
-    ov.addColorStop(0.5, 'rgba(11,16,19,0.65)');
-    ov.addColorStop(1, 'rgba(11,16,19,0.85)');
+    applyGradientStops(ov, theme.overlayFull);
     ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
   } else {
-    // Fallback: dark gradient background
+    // Fallback: theme gradient background
     const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#1C2529');
-    bg.addColorStop(1, '#0B1013');
+    bg.addColorStop(0, theme.bgGradientTop);
+    bg.addColorStop(1, theme.bgGradientBottom);
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   }
 
-  // Subtle teal accent glow corner
+  // Subtle accent glow corner
   const glow = ctx.createRadialGradient(W, H, 0, W, H, Math.max(W, H) * 0.6);
   glow.addColorStop(0, `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.12)`);
   glow.addColorStop(1, `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0)`);
@@ -379,12 +491,12 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(Math.min(H * 0.55, H - 4));
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
       ctx.globalAlpha = 1;
       x += lW + Math.round(H * 0.25);
     } else {
-      // Teal dot marker
+      // Accent dot marker
       ctx.fillStyle = accent;
       ctx.beginPath(); ctx.arc(x + 4, midY, 3, 0, Math.PI * 2); ctx.fill();
       x += 12;
@@ -400,17 +512,17 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const ctaBtnH = Math.min(H - 4, ctaFontSize + ctaPadY * 2);
     const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Headline fills remaining space (truncated to fit)
     const headlineMaxW = Math.max(30, ctaX - x - 8);
     ctx.font = `700 ${fs}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = theme.textPrimary;
     const truncated = truncateToWidth(ctx, shortHeadline, headlineMaxW);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(truncated, x, midY);
@@ -428,7 +540,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(H * 0.16);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, pad, pad, lW, lH);
       ctx.globalAlpha = 1;
     }
@@ -442,10 +554,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeY = pad + (images.logo ? Math.round(H * 0.16) + 8 : 0);
     const badgeX = pad;
     if (badgeTW + 18 <= W * 0.25) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, badgeX, badgeY, badgeTW + 18, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
       ctx.fillText(badgeText, badgeX + 9, badgeY + badgeH / 2 + 1);
     }
@@ -463,7 +575,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, 2);
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = (H - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, pad, hy); hy += hFS * 1.08; }
 
     // CTA pill right
@@ -476,10 +588,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const ctaBtnH = ctaFS + ctaPadY * 2;
     const ctaX = W - pad - ctaBtnW;
     const ctaY = (H - ctaBtnH) / 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
@@ -487,7 +599,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     // Legal
     const legalFS = Math.max(8, Math.round(H * 0.05));
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.legalText;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W - pad, H - pad * 0.5);
     ctx.textAlign = 'left';
@@ -508,7 +620,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lW = Math.round(W * 0.65);
       const asp = images.logo.width / images.logo.height;
       const lH = Math.min(lW / asp, Math.round(H * 0.12));
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
       ctx.globalAlpha = 1;
       yCursor += lH + Math.round(H * 0.02);
@@ -521,10 +633,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeTW = ctx.measureText(badgeText).width;
     const badgeH = Math.round(badgeFS * 1.8);
     if (badgeTW + 14 <= W - pad * 2) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, (W - badgeTW - 14) / 2, yCursor, badgeTW + 14, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
       ctx.fillText(badgeText, W / 2, yCursor + badgeH / 2 + 1);
       yCursor += badgeH + Math.round(H * 0.025);
@@ -563,21 +675,21 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = headlineAreaTop + (headlineAreaH - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
     // CTA pill
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(ctaText, W / 2, ctaY + ctaBtnH / 2 + 1);
 
     // Legal
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.legalText;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W / 2, safeBottom);
     ctx.textAlign = 'left';
@@ -596,7 +708,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(H * 0.1);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
       ctx.globalAlpha = 1;
       logoBottomY = safeTop + lH;
@@ -610,10 +722,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeH = Math.round(badgeFS * 1.8);
     const badgeY = safeTop;
     if (badgeTW + 12 + (logoBottomY > safeTop ? 60 : 0) < W - pad * 2) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, W - pad - badgeTW - 12, badgeY, badgeTW + 12, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
       ctx.fillText(badgeText, W - pad - badgeTW - 6, badgeY + badgeH / 2 + 1);
     }
@@ -646,21 +758,21 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = headlineTop + (headlineAreaH - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
     // CTA pill
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(ctaText, (W - ctaBtnW) / 2 + ctaBtnW / 2, ctaY + ctaBtnH / 2 + 1);
 
     // Legal bottom-right
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.legalText;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W - pad, safeBottom);
     ctx.textAlign = 'left';
@@ -677,7 +789,7 @@ function truncateToWidth(ctx, text, maxW) {
   return s + '…';
 }
 
-function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S) {
+function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S, theme) {
   if (!logo) return 0;
   // Discrete: ~6-7% of canvas width, capped
   const lMaxW = Math.round(Math.min(W * 0.14, Math.max(80, 150*S)));
@@ -685,14 +797,14 @@ function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S) {
   const asp = logo.width / logo.height;
   let lw = lMaxW, lh = lMaxW/asp;
   if (lh > lMaxH) { lh = lMaxH; lw = lMaxH*asp; }
-  ctx.globalAlpha = 0.85;
+  ctx.globalAlpha = theme?.logoAlpha ?? 0.85;
   // Place top-left with proper margin
   ctx.drawImage(logo, sideP, bottomSafe, lw, lh);
   ctx.globalAlpha = 1;
   return lh;
 }
 
-function renderLegalText(ctx, W, H, S, isTiny) {
+function renderLegalText(ctx, W, H, S, isTiny, theme) {
   if (isTiny) return; // skip on tiny banners (320x50, 728x90)
   const LS = Math.max(W, H) / 1080;
   const fs = Math.max(11, Math.round(16 * LS));
@@ -700,13 +812,13 @@ function renderLegalText(ctx, W, H, S, isTiny) {
   ctx.font = `500 ${fs}px "DM Sans", sans-serif`;
   const text = 'B/2021/000560, E/2022/000028';
   const tw = ctx.measureText(text).width;
-  // Subtle dark backing for legibility on any background (e.g. AI-generated images)
-  ctx.fillStyle = 'rgba(11,16,19,0.55)';
+  // Subtle backing for legibility on any background (e.g. AI-generated images)
+  ctx.fillStyle = theme?.legalBackingFill || 'rgba(11,16,19,0.55)';
   const bx = W - pad - tw - 8;
   const by = H - pad - fs - 4;
   drawRoundRect(ctx, bx, by, tw + 16, fs + 8, 4);
   ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillStyle = theme?.legalText || 'rgba(255,255,255,0.85)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
   ctx.fillText(text, W - pad, H - pad);
@@ -724,8 +836,10 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   const S = Math.min(W,H)/1080;
+  const theme = getTheme(settings);
+  const accentRGB = hexToRgb(settings.accent || '#2DB5A8');
 
-  ctx.fillStyle = '#0B1013'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle = theme.bgSolid; ctx.fillRect(0,0,W,H);
 
   if (images.studioAI) {
     const scale = Math.max(W/images.studioAI.width, H/images.studioAI.height);
@@ -733,23 +847,24 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
     ctx.drawImage(images.studioAI, (W-sw)/2, (H-sh)/2, sw, sh);
   } else {
     const isTall = H > W;
-    ctx.fillStyle = '#1C2529';
-    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#1C2529'); g.addColorStop(1,'#0B1013');
+    const g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0, theme.bgGradientTop);
+    g.addColorStop(1, theme.bgGradientBottom);
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
     ctx.font = `600 ${Math.round(Math.max(18,(isTall?38:32)*S))}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(45,181,168,0.45)';
+    ctx.fillStyle = `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.45)`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('✦ Generálj AI kreatívát', W/2, H/2);
     ctx.font = `400 ${Math.round(Math.max(13,(isTall?24:20)*S))}px "DM Sans", sans-serif`;
-    ctx.fillStyle='rgba(184,194,198,0.35)';
+    ctx.fillStyle = theme.isLight ? 'rgba(75,84,88,0.55)' : 'rgba(184,194,198,0.35)';
     ctx.fillText('Nano Banana Pro — szöveg beleégetve', W/2, H/2+(isTall?54:44)*S);
     ctx.textAlign='left';
   }
 
   const sideP = Math.round(W*0.065);
   const bottomSafe = Math.round(H*0.05);
-  renderLogo(ctx, images.logo, W, H, sideP, bottomSafe, S);
-  renderLegalText(ctx, W, H, S, false);
+  renderLogo(ctx, images.logo, W, H, sideP, bottomSafe, S, theme);
+  renderLegalText(ctx, W, H, S, false, theme);
 };
 
 Object.assign(window, { renderCreative, wrapText, renderCreative_studioAI });
