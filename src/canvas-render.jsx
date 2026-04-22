@@ -451,11 +451,11 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   // ===== LEADERBOARDS (320×50, 728×90): single horizontal line =====
   if (isLeaderboard) {
     // Base sizes (reference: typical leaderboard at 90px tall)
-    const basePad = 4;
-    const baseHeadlineFS = 16;
-    const baseDotRadius = 3;
-    const baseCtaPadX = 6;
-    const baseCtaPadY = 3;
+    const basePad = 3;
+    const baseHeadlineFS = 14;
+    const baseDotRadius = 2.5;
+    const baseCtaPadX = 5;
+    const baseCtaPadY = 2.5;
 
     const pad = Math.round(basePad * bannerScale);
     const midY = H / 2;
@@ -510,11 +510,11 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   // ===== BILLBOARD (970×250, wide rect): horizontal split =====
   if (isBillboard) {
     const basePad = 30;
-    const baseHeadlineFS = 60;
-    const baseBadgeFS = 15;
-    const baseCtaFS = 35;
-    const baseLegalFS = 20;
-    const baseLogoH = 40;
+    const baseHeadlineFS = 32;
+    const baseBadgeFS = 13;
+    const baseCtaFS = 24;
+    const baseLegalFS = 14;
+    const baseLogoH = 30;
 
     const pad = Math.round(basePad * bannerScale);
 
@@ -584,13 +584,13 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== SKYSCRAPER (160×600, 300×600): vertical stack =====
   if (isTall) {
-    const basePad = 30;
-    const baseLogoW = 195;
-    const baseBadgeFS = 20;
-    const baseHeadlineFS = 36;
-    const baseCtaFS = 30;
-    const baseLegalFS = 18;
-    const baseGap = 10;
+    const basePad = 24;
+    const baseLogoW = 150;
+    const baseBadgeFS = 14;
+    const baseHeadlineFS = 24;
+    const baseCtaFS = 20;
+    const baseLegalFS = 12;
+    const baseGap = 8;
 
     const pad = Math.round(basePad * bannerScale);
     const safeTop = pad;
@@ -672,12 +672,12 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== SMALL RECT (300×250, 336×280): compact centered =====
   {
-    const basePad = 20;
-    const baseLogoH = 25;
-    const baseBadgeFS = 20;
-    const baseHeadlineFS = 42;
-    const baseCtaFS = 28;
-    const baseLegalFS = 16;
+    const basePad = 18;
+    const baseLogoH = 20;
+    const baseBadgeFS = 14;
+    const baseHeadlineFS = 28;
+    const baseCtaFS = 20;
+    const baseLegalFS = 12;
 
     const pad = Math.round(basePad * bannerScale);
     const safeTop = pad;
