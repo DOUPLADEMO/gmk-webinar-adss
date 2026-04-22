@@ -810,8 +810,10 @@ function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S, theme) {
   let lw = lMaxW, lh = lMaxW/asp;
   if (lh > lMaxH) { lh = lMaxH; lw = lMaxH*asp; }
   ctx.globalAlpha = theme?.logoAlpha ?? 0.85;
+  if (theme?.isLight) ctx.filter = 'invert(1)';
   // Place top-left with proper margin
   ctx.drawImage(logo, sideP, bottomSafe, lw, lh);
+  ctx.filter = 'none';
   ctx.globalAlpha = 1;
   return lh;
 }
