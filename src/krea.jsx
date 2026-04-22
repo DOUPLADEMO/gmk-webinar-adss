@@ -28,44 +28,34 @@ function buildProxiedUrl(path, proxyConfig) {
   return `${config.url}?url=${encodeURIComponent(targetUrl)}`;
 }
 
-// Submit a text-to-image job — tries with and without /v1 prefix
-async function kreaGenerateImage({ apiKey, model = 'nano-banana-pro', prompt, width = 1080, height = 1080, steps = 28 }) {
+// Submit a text-to-image job — model should be in format "provider/model-name" e.g. "google/nano-banana-pro"
+async function kreaGenerateImage({ apiKey, model = 'google/nano-banana-pro', prompt, width = 1080, height = 1080, steps = 28 }) {
   const proxyConfig = getProxyConfig();
-  const endpoints = [
-    { path: `/generate/image/${model}` },
-    { path: `/v1/generate/image/${model}` },
-  ];
+  // Only try the standard endpoint format: /generate/image/{provider}/{model}
+  const path = `/generate/image/${model}`;
 
-  let lastErr = null;
-  for (const endpoint of endpoints) {
-    try {
-      const url = buildProxiedUrl(endpoint.path, proxyConfig);
-      const body = endpoint.path.includes('/v1/images/generate')
-        ? JSON.stringify({ model, prompt, width, height, steps })
-        : JSON.stringify({ prompt, width, height, steps });
+  try {
+    const url = buildProxiedUrl(path, proxyConfig);
+    const body = JSON.stringify({ prompt, width, height, steps });
 
-      const headers = {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...getProxyHeaders(proxyConfig),
-      };
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...getProxyHeaders(proxyConfig),
+    };
 
-      const res = await fetch(url, { method: 'POST', headers, body });
+    const res = await fetch(url, { method: 'POST', headers, body });
 
-      if (res.status === 404) { lastErr = new Error(`404 – endpoint nem található`); continue; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      data._endpoint_path = endpoint.path;
-      return data;
-    } catch (e) {
-      if (e.message.startsWith('404')) { lastErr = e; continue; }
-      throw e;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `HTTP ${res.status}`);
     }
+    const data = await res.json();
+    data._endpoint_path = path;
+    return data;
+  } catch (e) {
+    throw e;
   }
-  throw lastErr || new Error('Minden endpoint 404-et adott vissza.');
 }
 
 // Poll a job until completed or failed. onProgress(status) called each tick.

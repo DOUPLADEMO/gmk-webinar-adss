@@ -272,7 +272,7 @@ Adj vissza CSAK JSON-t, semmi más, pontosan ebben a formában:
 // --------- Creative Panel ---------
 function CreativePanel({ variant, settings, setSettings, format, onGenerated, onModelChange }) {
   const [apiKey, setApiKey] = React.useState(() => localStorage.getItem('gmk_krea_key') || '');
-  const [model, setModel] = React.useState(() => localStorage.getItem('gmk_krea_model') || 'nano-banana-pro');
+  const [model, setModel] = React.useState(() => localStorage.getItem('gmk_krea_model') || 'google/nano-banana-pro');
   const [customPrompt, setCustomPrompt] = React.useState('');
   const [status, setStatus] = React.useState(null); // null | 'generating' | 'polling' | 'done' | 'error'
   const [statusMsg, setStatusMsg] = React.useState('');
@@ -323,10 +323,10 @@ function CreativePanel({ variant, settings, setSettings, format, onGenerated, on
   };
 
   const MODELS = [
-    { id: 'nano-banana-pro', label: 'Nano Banana Pro', sub: 'Google · legjobb tipográfia + fotórealizmus' },
-    { id: 'flux',            label: 'Flux',             sub: 'Gyors · sokrétű stílustámogatás' },
-    { id: 'krea-1',          label: 'Krea-1',           sub: 'Krea saját modell' },
-    { id: 'seedream-4',      label: 'Seedream 4',       sub: 'ByteDance · magas minőség' },
+    { id: 'google/nano-banana-pro', label: 'Nano Banana Pro', sub: 'Google · legjobb tipográfia + fotórealizmus' },
+    { id: 'bfl/flux-1-dev',         label: 'Flux 1 Dev',       sub: 'Black Forest Labs · gyors és minőségi' },
+    { id: 'google/imagen-4-ultra',  label: 'Imagen 4 Ultra',   sub: 'Google · ultra-minőség' },
+    { id: 'ideogram/ideogram-3-0',  label: 'Ideogram 3.0',     sub: 'Ideogram · tipográfia és dizájn' },
   ];
 
   const uploadRef = React.useRef(null);
@@ -511,7 +511,7 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
     try {
       const prompt = customPrompt.trim() || autoPrompt;
       const url = await kreaGenerate(
-        { apiKey: apiKey.trim(), model: 'nano-banana-pro', prompt, width: W, height: H, steps: 35 },
+        { apiKey: apiKey.trim(), model: 'google/nano-banana-pro', prompt, width: W, height: H, steps: 35 },
         s => setStatusMsg(s === 'processing' ? 'Nano Banana Pro generál...' : s)
       );
       if (!url) throw new Error('Nem érkezett vissza kép URL.');
