@@ -176,6 +176,24 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
           </button>
         </div>
       </Row>
+
+      <div className="flex items-center justify-between py-1">
+        <span className="text-[11.5px] text-[#B8C2C6]" style={{ fontFamily: '"DM Sans", sans-serif' }}>
+          Háttér overlay erősség
+        </span>
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={settings.overlayOpacity ?? 100}
+            onChange={e => setSettings(s => ({ ...s, overlayOpacity: parseInt(e.target.value) }))}
+            className="w-24"
+            style={{ accentColor: '#2DB5A8' }}
+          />
+          <span className="text-[10px] text-[#6B777C] w-8 text-right">{settings.overlayOpacity ?? 100}%</span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -111,9 +111,18 @@ function getTheme(settings) {
   };
 }
 
-function applyGradientStops(gradient, stops) {
+function applyGradientStops(gradient, stops, opacityPercent = 100) {
+  const opacityMult = Math.max(0, Math.min(100, opacityPercent)) / 100;
   for (const stop of stops) {
-    gradient.addColorStop(stop.pos, stop.color);
+    const color = stop.color;
+    const rgba = color.match(/rgba?\(([^)]+)\)/);
+    if (rgba && color.startsWith('rgba')) {
+      const parts = rgba[1].split(',').map((v, i) => i < 3 ? v.trim() : parseFloat(v.trim()) * opacityMult);
+      const newColor = `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${parts[3]})`;
+      gradient.addColorStop(stop.pos, newColor);
+    } else {
+      gradient.addColorStop(stop.pos, color);
+    }
   }
 }
 
@@ -172,7 +181,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
     if (layout === 'full-bleed') {
       drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
       const ov = ctx.createLinearGradient(0, 0, 0, H);
-      applyGradientStops(ov, theme.overlayFull);
+      applyGradientStops(ov, theme.overlayFull, settings.overlayOpacity);
       ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
     } else if (layout === 'hero') {
       if (isTall) {
@@ -180,12 +189,12 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
         const photoH = Math.round(H * 0.72);
         drawCoverImage(ctx, images.bg, 0, 0, W, photoH, 0.5, focalY);
         const fade = ctx.createLinearGradient(0, photoH*0.45, 0, photoH);
-        applyGradientStops(fade, theme.overlayBottomFade);
+        applyGradientStops(fade, theme.overlayBottomFade, settings.overlayOpacity);
         ctx.fillStyle = fade; ctx.fillRect(0, photoH*0.45, W, photoH*0.55+1);
         ctx.fillStyle = theme.solidSide; ctx.fillRect(0, photoH, W, H-photoH);
         // top vignette
         const topV = ctx.createLinearGradient(0,0,0,H*0.18);
-        applyGradientStops(topV, theme.overlayTopVignette);
+        applyGradientStops(topV, theme.overlayTopVignette, settings.overlayOpacity);
         ctx.fillStyle = topV; ctx.fillRect(0,0,W,H*0.18);
       } else {
         // Shape-aware split: square → photo 52%, landscape → photo 55%
@@ -193,12 +202,12 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
         const photoX = Math.round(W * (1 - photoFrac));
         drawCoverImage(ctx, images.bg, photoX, 0, W-photoX, H, 0.5, focalY);
         const fade = ctx.createLinearGradient(photoX-60, 0, photoX+300, 0);
-        applyGradientStops(fade, theme.overlaySideFade);
+        applyGradientStops(fade, theme.overlaySideFade, settings.overlayOpacity);
         ctx.fillStyle = fade; ctx.fillRect(photoX-60, 0, 360, H);
         ctx.fillStyle = theme.solidSide; ctx.fillRect(0, 0, photoX-60, H);
         // Bottom shadow
         const bot = ctx.createLinearGradient(0, H-H*0.22, 0, H);
-        applyGradientStops(bot, theme.overlayBottomShadow);
+        applyGradientStops(bot, theme.overlayBottomShadow, settings.overlayOpacity);
         ctx.fillStyle = bot; ctx.fillRect(0, H-H*0.22, W, H*0.22);
       }
     } else if (layout === 'circle') {
@@ -413,7 +422,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
     // Add overlay for text readability (theme-aware)
     const ov = ctx.createLinearGradient(0, 0, 0, H);
-    applyGradientStops(ov, theme.overlayFull);
+    applyGradientStops(ov, theme.overlayFull, settings.overlayOpacity);
     ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
   } else {
     // Fallback: theme gradient background
@@ -450,7 +459,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
       x += lW + Math.round(H * 0.25);
     } else {
@@ -499,7 +510,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, pad, pad, lW, lH);
+      ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
 
@@ -579,8 +592,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const asp = images.logo.width / images.logo.height;
       const lH = Math.min(lW / asp, Math.round(H * 0.12));
       ctx.globalAlpha = theme.logoAlpha;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
       ctx.globalAlpha = 1;
+      ctx.filter = 'none';
       yCursor += lH + Math.round(H * 0.02);
     }
 
@@ -669,8 +684,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
       ctx.globalAlpha = 1;
+      if (theme.isLight) ctx.filter = 'invert(1)';
       logoBottomY = safeTop + lH;
     }
+      ctx.filter = 'none';
 
     // Badge top-right
     const badgeFS = Math.max(8, Math.round(H * 0.06));
@@ -756,8 +773,11 @@ function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S, theme) {
   let lw = lMaxW, lh = lMaxW/asp;
   if (lh > lMaxH) { lh = lMaxH; lw = lMaxH*asp; }
   ctx.globalAlpha = theme ? theme.logoAlpha : 0.85;
+  // Invert logo in light mode for visibility
+  if (theme?.isLight) ctx.filter = 'invert(1)';
   // Place top-left with proper margin
   ctx.drawImage(logo, sideP, bottomSafe, lw, lh);
+  ctx.filter = 'none';
   ctx.globalAlpha = 1;
   return lh;
 }
@@ -817,7 +837,7 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
     drawCoverImage(ctx, images.studioAI, 0, 0, W, H, 0.5, focalY);
     // Add overlay for text readability
     const ov = ctx.createLinearGradient(0, 0, 0, H);
-    applyGradientStops(ov, theme.overlayFull);
+    applyGradientStops(ov, theme.overlayFull, settings.overlayOpacity);
     ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
   } else {
     // Fallback: gradient background if no AI image
