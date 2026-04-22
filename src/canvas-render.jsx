@@ -415,9 +415,9 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   const accentRGB = hexToRgb(accent);
   const theme = getTheme(settings);
 
-  // Unified scaling: all dimensions scale proportionally to banner height
-  // Base height: 250px (reference for small rects, billboards)
-  const bannerScale = H / 250;
+  // Unified scaling: use minimum dimension (the constraint) as base
+  // Base: 250px. Leaderboards constrained by height, skyscrapers by width
+  const bannerScale = Math.min(W, H) / 250;
 
   // Background — use portrait/AI image if available, otherwise gradient
   if (images.bg) {
