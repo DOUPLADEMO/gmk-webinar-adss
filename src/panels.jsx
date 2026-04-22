@@ -493,9 +493,11 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
   const [error, setError] = React.useState(null);
   const [previewUrl, setPreviewUrl] = React.useState(null);
 
-  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_krea_proxy') || '');
+  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_proxy_url') || 'https://proxy.cors.sh/');
+  const [proxyKey, setProxyKey] = React.useState(() => localStorage.getItem('gmk_proxy_key') || '4509bcba');
   const saveKey = v => { setApiKey(v); localStorage.setItem('gmk_krea_key', v); };
-  const saveProxy = v => { setProxyUrl(v); localStorage.setItem('gmk_krea_proxy', v); };
+  const saveProxyUrl = v => { setProxyUrl(v); localStorage.setItem('gmk_proxy_url', v); };
+  const saveProxyKey = v => { setProxyKey(v); localStorage.setItem('gmk_proxy_key', v); };
 
   const fmtObjS = typeof format === 'object' ? format : null;
   const W = fmtObjS ? fmtObjS.w : 1080;
@@ -548,22 +550,32 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
         <div className="text-[10px] text-[#4B5458] mt-1">krea.ai/settings/api-tokens</div>
       </div>
 
-      {/* API Base URL */}
+      {/* CORS Proxy URL */}
       <div>
-        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">API Base URL</div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">CORS Proxy URL</div>
         <input
           type="text"
           value={proxyUrl}
-          onChange={e => saveProxy(e.target.value)}
-          placeholder="https://gmk-krea-proxy.workers.dev"
+          onChange={e => saveProxyUrl(e.target.value)}
+          placeholder="https://proxy.cors.sh/"
           className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
           style={{ fontFamily: 'monospace' }}
         />
-        <div className="text-[9.5px] text-[#4B5458] mt-1 leading-snug">
-          <strong>Ajánlott:</strong> Cloudflare Worker (https://gmk-krea-proxy.workers.dev) — ha nem működik, használj másikat: https://corsproxy.io/?
-          <br />
-          <strong>Deploy:</strong> wrangler deploy (lásd CLOUDFLARE_WORKER.md)
-        </div>
+        <div className="text-[9.5px] text-[#4B5458] mt-1">https://proxy.cors.sh/ (corsproxy.io)</div>
+      </div>
+
+      {/* CORS Proxy API Key */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">CORS Proxy API Key</div>
+        <input
+          type="password"
+          value={proxyKey}
+          onChange={e => saveProxyKey(e.target.value)}
+          placeholder="4509bcba..."
+          className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
+          style={{ fontFamily: 'monospace' }}
+        />
+        <div className="text-[9.5px] text-[#4B5458] mt-1">x-cors-api-key header — dashboard jobb felső sarka</div>
       </div>
 
       {/* Prompt */}
