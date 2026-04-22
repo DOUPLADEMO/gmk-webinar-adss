@@ -1,13 +1,13 @@
 // Krea.ai API helpers — async job lifecycle
 
 const KREA_BASE = 'https://api.krea.ai';
-const CORSPROXY_URL = 'https://proxy.cors.sh/';
-const CORSPROXY_API_KEY = '4509bcba'; // corsproxy.io API key for authenticated requests
+const CORSPROXY_IO_URL = 'https://corsproxy.io/';
+const CORSPROXY_API_KEY = '4509bcba'; // corsproxy.io authenticated API key
 
 // Get proxy settings from localStorage or environment
 function getProxyConfig() {
   return {
-    url: localStorage.getItem('gmk_proxy_url') || CORSPROXY_URL,
+    url: localStorage.getItem('gmk_proxy_url') || CORSPROXY_IO_URL,
     apiKey: localStorage.getItem('gmk_proxy_key') || CORSPROXY_API_KEY,
   };
 }
@@ -19,12 +19,13 @@ function getProxyHeaders(proxyConfig) {
 }
 
 // Build the final URL, proxying through corsproxy.io if configured
+// corsproxy.io format: https://corsproxy.io/?url={target-url}
 function buildProxiedUrl(path, proxyConfig) {
   const config = proxyConfig || getProxyConfig();
   if (!config.url || config.url === KREA_BASE) return `${KREA_BASE}${path}`;
-  // corsproxy.io format: https://proxy.cors.sh/{target-url}
   const targetUrl = `${KREA_BASE}${path}`;
-  return `${config.url}${targetUrl}`;
+  // corsproxy.io uses ?url= query parameter
+  return `${config.url}?url=${encodeURIComponent(targetUrl)}`;
 }
 
 // Submit a text-to-image job — tries with and without /v1 prefix

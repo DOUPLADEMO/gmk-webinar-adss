@@ -493,7 +493,7 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
   const [error, setError] = React.useState(null);
   const [previewUrl, setPreviewUrl] = React.useState(null);
 
-  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_proxy_url') || 'https://proxy.cors.sh/');
+  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_proxy_url') || 'https://corsproxy.io/');
   const [proxyKey, setProxyKey] = React.useState(() => localStorage.getItem('gmk_proxy_key') || '4509bcba');
   const saveKey = v => { setApiKey(v); localStorage.setItem('gmk_krea_key', v); };
   const saveProxyUrl = v => { setProxyUrl(v); localStorage.setItem('gmk_proxy_url', v); };
@@ -557,11 +557,11 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
           type="text"
           value={proxyUrl}
           onChange={e => saveProxyUrl(e.target.value)}
-          placeholder="https://proxy.cors.sh/"
+          placeholder="https://corsproxy.io/"
           className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
           style={{ fontFamily: 'monospace' }}
         />
-        <div className="text-[9.5px] text-[#4B5458] mt-1">https://proxy.cors.sh/ (corsproxy.io)</div>
+        <div className="text-[9.5px] text-[#4B5458] mt-1">https://corsproxy.io/ (autentikált endpoint)</div>
       </div>
 
       {/* CORS Proxy API Key */}
