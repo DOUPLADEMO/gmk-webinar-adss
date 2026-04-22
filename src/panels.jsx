@@ -104,16 +104,18 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
         </select>
       </Row>
 
-      <Row label="Dátum / alcím (opcionális)">
-        <input
-          type="text"
-          value={settings.dateText}
-          onChange={e => setSettings(s => ({ ...s, dateText: e.target.value }))}
-          placeholder="pl. 2026. május 15. | 18:00"
-          className="text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#4B5458]"
-          style={{ fontFamily: '"DM Sans", sans-serif' }}
-        />
-      </Row>
+      <div style={{ display: 'none' }}>
+        <Row label="Dátum / alcím (opcionális)">
+          <input
+            type="text"
+            value={settings.dateText}
+            onChange={e => setSettings(s => ({ ...s, dateText: e.target.value }))}
+            placeholder="pl. 2026. május 15. | 18:00"
+            className="text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#4B5458]"
+            style={{ fontFamily: '"DM Sans", sans-serif' }}
+          />
+        </Row>
+      </div>
 
       <div className="flex items-center justify-between py-1">
         <span className="text-[11.5px] text-[#B8C2C6]" style={{ fontFamily: '"DM Sans", sans-serif' }}>

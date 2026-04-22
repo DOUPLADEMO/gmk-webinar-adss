@@ -396,10 +396,12 @@ function App() {
               onChange={e => setVariants(vs => vs.map(v => v.id === activeId ? { ...v, headline: e.target.value } : v))}
               rows={2}
               className="w-full text-[13px] text-white bg-[#0E1417] border border-[#1C262A] p-2.5 outline-none focus:border-[#2DB5A8] resize-none leading-snug" />
-            <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 mt-3 font-medium">Subline (opcionális)</div>
-            <input type="text" value={activeVariant.subline || ''}
-              onChange={e => setVariants(vs => vs.map(v => v.id === activeId ? { ...v, subline: e.target.value || null } : v))}
-              className="w-full text-[13px] text-white bg-[#0E1417] border border-[#1C262A] px-2.5 py-2 outline-none focus:border-[#2DB5A8]" />
+            <div style={{ display: 'none' }}>
+              <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 mt-3 font-medium">Subline (opcionális)</div>
+              <input type="text" value={activeVariant.subline || ''}
+                onChange={e => setVariants(vs => vs.map(v => v.id === activeId ? { ...v, subline: e.target.value || null } : v))}
+                className="w-full text-[13px] text-white bg-[#0E1417] border border-[#1C262A] px-2.5 py-2 outline-none focus:border-[#2DB5A8]" />
+            </div>
           </div>
         </main>
 
@@ -419,9 +421,9 @@ function App() {
             />
           </div>
 
-          <div className="h-px bg-[#141B1F]" />
+          <div className="h-px bg-[#141B1F]" style={{ display: 'none' }} />
 
-          <div>
+          <div style={{ display: 'none' }}>
             <SectionLabel n="04" title="AI háttérgenerátor · Krea" />
             <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
               Generált kép automatikusan bekerül a könyvtárba és a {activeId} · {format} háttere lesz.
@@ -429,9 +431,9 @@ function App() {
             <KreaGenerator onGenerated={addGeneratedPortrait} format={format} />
           </div>
 
-          <div className="h-px bg-[#141B1F]" />
+          <div className="h-px bg-[#141B1F]" style={{ display: 'none' }} />
 
-          <div>
+          <div style={{ display: 'none' }}>
             <SectionLabel n="05" title="AI szövegíró" />
             <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
               Új headline variáció az aktív variánshoz ({activeId}).
@@ -439,7 +441,7 @@ function App() {
             <AIAssistant onPick={pickAIHeadline} />
           </div>
 
-          <div className="h-px bg-[#141B1F]" />
+          <div className="h-px bg-[#141B1F]" style={{ display: 'none' }} />
 
           <div>
             <SectionLabel n="06" title="Exportálás" />
