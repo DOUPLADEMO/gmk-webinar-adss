@@ -40,6 +40,83 @@ function hexToRgb(hex) {
   return m ? {r:parseInt(m[0],16),g:parseInt(m[1],16),b:parseInt(m[2],16)} : {r:45,g:181,b:168};
 }
 
+function getTheme(settings) {
+  const isLight = settings.theme === 'light';
+  return {
+    isLight,
+    textPrimary: isLight ? '#0B1013' : '#FFFFFF',
+    textSecondary: isLight ? '#4B5458' : '#B8C2C6',
+    textSubline: '#2DB5A8',
+    bgGradientTop: isLight ? '#FFFFFF' : '#1C2529',
+    bgGradientBottom: isLight ? '#E8ECEE' : '#0B1013',
+    bgSolid: isLight ? '#F5F7F8' : '#0B1013',
+    overlayGradient: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0.15)' },
+      { pos: 0.5, color: 'rgba(255,255,255,0.35)' },
+      { pos: 1, color: 'rgba(255,255,255,0.55)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0.2)' },
+      { pos: 0.5, color: 'rgba(11,16,19,0.5)' },
+      { pos: 1, color: 'rgba(11,16,19,0.8)' }
+    ],
+    overlayFull: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0.1)' },
+      { pos: 0.5, color: 'rgba(255,255,255,0.3)' },
+      { pos: 1, color: 'rgba(255,255,255,0.5)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0.3)' },
+      { pos: 0.5, color: 'rgba(11,16,19,0.6)' },
+      { pos: 1, color: 'rgba(11,16,19,0.9)' }
+    ],
+    overlayBottomFade: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0)' },
+      { pos: 0.4, color: 'rgba(255,255,255,0.2)' },
+      { pos: 1, color: 'rgba(255,255,255,0.5)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0)' },
+      { pos: 0.4, color: 'rgba(11,16,19,0.3)' },
+      { pos: 1, color: 'rgba(11,16,19,0.9)' }
+    ],
+    overlaySideFade: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0.3)' },
+      { pos: 1, color: 'rgba(255,255,255,0)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0.8)' },
+      { pos: 1, color: 'rgba(11,16,19,0)' }
+    ],
+    overlayBottomShadow: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0)' },
+      { pos: 1, color: 'rgba(255,255,255,0.7)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0)' },
+      { pos: 1, color: 'rgba(11,16,19,0.95)' }
+    ],
+    overlayTopVignette: isLight ? [
+      { pos: 0, color: 'rgba(255,255,255,0.4)' },
+      { pos: 1, color: 'rgba(255,255,255,0)' }
+    ] : [
+      { pos: 0, color: 'rgba(11,16,19,0.5)' },
+      { pos: 1, color: 'rgba(11,16,19,0)' }
+    ],
+    solidSide: isLight ? '#FFFFFF' : '#0B1013',
+    ctaBg: isLight ? '#0B1013' : '#2DB5A8',
+    ctaText: isLight ? '#FFFFFF' : '#0B1013',
+    badgeBg: '#2DB5A8',
+    badgeText: isLight ? '#FFFFFF' : '#0B1013',
+    legalBackingFill: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(11,16,19,0.55)',
+    legalText: isLight ? 'rgba(11,16,19,0.85)' : 'rgba(255,255,255,0.85)',
+    grainColor: isLight ? '#000' : '#FFF',
+    textShadow: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)',
+    logoAlpha: isLight ? 0.95 : 0.85,
+  };
+}
+
+function applyGradientStops(gradient, stops) {
+  for (const stop of stops) {
+    gradient.addColorStop(stop.pos, stop.color);
+  }
+}
+
 // Classify format shape for layout decisions
 function classifyFormat(W, H) {
   const ratio = W / H;
@@ -333,23 +410,22 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   const isBillboard = !isLeaderboard && !isTall && ratio > 2.5;
   // Everything else here is a small rect (300×250, 336×280)
   const accentRGB = hexToRgb(accent);
+  const theme = getTheme(settings);
 
-  // Background — use portrait/AI image if available, otherwise dark gradient
+  // Background — use portrait/AI image if available, otherwise gradient
   if (images.bg) {
     // Draw background image with focal point
     const focalY = settings.focalY ?? 0.35;
     drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
-    // Add dark overlay for text readability
+    // Add overlay for text readability (theme-aware)
     const ov = ctx.createLinearGradient(0, 0, 0, H);
-    ov.addColorStop(0, 'rgba(11,16,19,0.4)');
-    ov.addColorStop(0.5, 'rgba(11,16,19,0.65)');
-    ov.addColorStop(1, 'rgba(11,16,19,0.85)');
+    applyGradientStops(ov, theme.overlayFull);
     ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
   } else {
-    // Fallback: dark gradient background
+    // Fallback: theme gradient background
     const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#1C2529');
-    bg.addColorStop(1, '#0B1013');
+    bg.addColorStop(0, theme.bgGradientTop);
+    bg.addColorStop(1, theme.bgGradientBottom);
     ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   }
 
@@ -400,17 +476,17 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const ctaBtnH = Math.min(H - 4, ctaFontSize + ctaPadY * 2);
     const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Headline fills remaining space (truncated to fit)
     const headlineMaxW = Math.max(30, ctaX - x - 8);
     ctx.font = `700 ${fs}px "Plus Jakarta Sans", sans-serif`;
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = theme.textPrimary;
     const truncated = truncateToWidth(ctx, shortHeadline, headlineMaxW);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(truncated, x, midY);
@@ -463,7 +539,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, 2);
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = (H - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, pad, hy); hy += hFS * 1.08; }
 
     // CTA pill right
@@ -476,10 +552,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const ctaBtnH = ctaFS + ctaPadY * 2;
     const ctaX = W - pad - ctaBtnW;
     const ctaY = (H - ctaBtnH) / 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
@@ -487,7 +563,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     // Legal
     const legalFS = Math.max(8, Math.round(H * 0.05));
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W - pad, H - pad * 0.5);
     ctx.textAlign = 'left';
@@ -508,7 +584,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lW = Math.round(W * 0.65);
       const asp = images.logo.width / images.logo.height;
       const lH = Math.min(lW / asp, Math.round(H * 0.12));
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
       ctx.globalAlpha = 1;
       yCursor += lH + Math.round(H * 0.02);
@@ -521,10 +597,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeTW = ctx.measureText(badgeText).width;
     const badgeH = Math.round(badgeFS * 1.8);
     if (badgeTW + 14 <= W - pad * 2) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, (W - badgeTW - 14) / 2, yCursor, badgeTW + 14, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
       ctx.fillText(badgeText, W / 2, yCursor + badgeH / 2 + 1);
       yCursor += badgeH + Math.round(H * 0.025);
@@ -563,21 +639,21 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = headlineAreaTop + (headlineAreaH - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
     // CTA pill
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(ctaText, W / 2, ctaY + ctaBtnH / 2 + 1);
 
     // Legal
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W / 2, safeBottom);
     ctx.textAlign = 'left';
@@ -596,7 +672,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(H * 0.1);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
       ctx.globalAlpha = 1;
       logoBottomY = safeTop + lH;
@@ -610,10 +686,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeH = Math.round(badgeFS * 1.8);
     const badgeY = safeTop;
     if (badgeTW + 12 + (logoBottomY > safeTop ? 60 : 0) < W - pad * 2) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, W - pad - badgeTW - 12, badgeY, badgeTW + 12, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
       ctx.fillText(badgeText, W - pad - badgeTW - 6, badgeY + badgeH / 2 + 1);
     }
@@ -646,21 +722,21 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = headlineTop + (headlineAreaH - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
     // CTA pill
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.ctaText;
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(ctaText, (W - ctaBtnW) / 2 + ctaBtnW / 2, ctaY + ctaBtnH / 2 + 1);
 
     // Legal bottom-right
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
     ctx.fillText(legal, W - pad, safeBottom);
     ctx.textAlign = 'left';

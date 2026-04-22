@@ -147,6 +147,35 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
           </div>
         </div>
       </Row>
+
+      <Row label="Sötét / Világos">
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            onClick={() => setSettings(s => ({ ...s, theme: 'dark' }))}
+            className="text-[11px] py-2 px-2 transition-colors flex items-center justify-center gap-1.5"
+            style={{
+              fontFamily: '"DM Sans", sans-serif',
+              background: (settings.theme || 'dark') === 'dark' ? '#2DB5A8' : '#0E1417',
+              color: (settings.theme || 'dark') === 'dark' ? '#0B0F10' : '#B8C2C6',
+              border: '1px solid ' + ((settings.theme || 'dark') === 'dark' ? '#2DB5A8' : '#1C262A'),
+              fontWeight: 500,
+            }}>
+            <span>☾</span> Sötét
+          </button>
+          <button
+            onClick={() => setSettings(s => ({ ...s, theme: 'light' }))}
+            className="text-[11px] py-2 px-2 transition-colors flex items-center justify-center gap-1.5"
+            style={{
+              fontFamily: '"DM Sans", sans-serif',
+              background: settings.theme === 'light' ? '#2DB5A8' : '#0E1417',
+              color: settings.theme === 'light' ? '#0B0F10' : '#B8C2C6',
+              border: '1px solid ' + (settings.theme === 'light' ? '#2DB5A8' : '#1C262A'),
+              fontWeight: 500,
+            }}>
+            <span>☀</span> Világos
+          </button>
+        </div>
+      </Row>
     </div>
   );
 }
