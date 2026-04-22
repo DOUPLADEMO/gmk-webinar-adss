@@ -481,22 +481,23 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   if (isLeaderboard) {
     // Very small: use minimal scale factors
     const smallScale = Math.min(W, H) / 50;
-    const pad = Math.max(5, Math.round(H * 0.25));
+    const pad = Math.max(6, Math.round(H * 0.30));
     const midY = H / 2;
-    const fs = Math.max(11, Math.round(H * 0.50));
+    const fs = Math.max(13, Math.round(H * 0.55));
     let x = pad;
 
-    // Logo left (if present) — constrained height
+    // Logo left (if present) — constrained height with max width
     if (images.logo) {
-      const lH = Math.round(Math.min(H * 0.55, H - 4));
+      const lH = Math.round(Math.min(H * 0.60, H - 4));
       const asp = images.logo.width / images.logo.height;
-      const lW = lH * asp;
+      let lW = lH * asp;
+      lW = Math.min(lW, W * 0.15);
       ctx.globalAlpha = theme.logoAlpha;
       if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
-      x += lW + Math.round(H * 0.25);
+      x += lW + Math.round(H * 0.30);
     } else {
       // Accent dot marker
       ctx.fillStyle = accent;
@@ -505,13 +506,13 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     }
 
     // CTA pill right with responsive sizing
-    const ctaFontSize = Math.max(10, Math.round(fs * 0.85));
+    const ctaFontSize = Math.max(11, Math.round(fs * 0.80));
     ctx.font = `700 ${ctaFontSize}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFontSize * 0.65);
-    const ctaPadY = Math.round(ctaFontSize * 0.35);
+    const ctaPadX = Math.round(ctaFontSize * 0.70);
+    const ctaPadY = Math.round(ctaFontSize * 0.40);
     const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.min(H - 3, ctaFontSize + ctaPadY * 2);
+    const ctaBtnH = Math.min(H - 2, ctaFontSize + ctaPadY * 2);
     const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
     ctx.fillStyle = theme.ctaBg;
@@ -522,7 +523,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Headline fills remaining space (truncated to fit)
-    const headlineMaxW = Math.max(30, ctaX - x - 8);
+    const headlineMaxW = Math.max(40, ctaX - x - 10);
     ctx.font = `700 ${fs}px "Plus Jakarta Sans", sans-serif`;
     ctx.fillStyle = theme.textPrimary;
     const truncated = truncateToWidth(ctx, shortHeadline, headlineMaxW);
@@ -535,28 +536,28 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   if (isBillboard) {
     // Scale based on smaller dimension
     const bScale = H / 250;
-    const pad = Math.round(H * 0.14);
+    const pad = Math.round(H * 0.16);
 
-    // Logo top-left small
+    // Logo top-left — larger for visibility
     if (images.logo) {
-      const lH = Math.round(H * 0.16);
+      const lH = Math.round(H * 0.28);
       const asp = images.logo.width / images.logo.height;
-      const lW = lH * asp;
+      const lW = Math.min(lH * asp, W * 0.18);
       ctx.globalAlpha = theme.logoAlpha;
       if (theme.isLight) ctx.filter = 'invert(1)';
-      ctx.drawImage(images.logo, pad, pad, lW, lH);
+      ctx.drawImage(images.logo, pad, (H - lH) / 2, lW, lH);
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
     }
 
     // Tiny badge below logo
-    const badgeFS = Math.max(9, Math.round(H * 0.06));
+    const badgeFS = Math.max(10, Math.round(H * 0.065));
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
     const badgeH = Math.round(badgeFS * 1.8);
-    const badgeY = pad + (images.logo ? Math.round(H * 0.16) + 8 : 0);
     const badgeX = pad;
+    const badgeY = H - pad - badgeH;
     if (badgeTW + 18 <= W * 0.25) {
       ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, badgeX, badgeY, badgeTW + 18, badgeH, 3);
@@ -567,11 +568,11 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     }
 
     // Headline — responsive font size, up to 2 lines
-    let hFS = Math.max(16, Math.round(H * 0.15));
+    let hFS = Math.max(18, Math.round(H * 0.18));
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
     let headlineMaxW = W * 0.55 - pad * 1.5;
     let hLines = wrapText(ctx, shortHeadline, headlineMaxW);
-    while (hLines.length > 2 && hFS > 12) {
+    while (hLines.length > 2 && hFS > 14) {
       hFS -= 1;
       ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
       hLines = wrapText(ctx, shortHeadline, headlineMaxW);
@@ -708,12 +709,14 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const safeTop = pad;
     const safeBottom = H - pad;
 
-    // Logo top-left
+    // Logo top-left — constrained size
     let logoBottomY = safeTop;
     if (images.logo) {
-      const lH = Math.round(H * 0.1);
+      const lH = Math.round(H * 0.12);
       const asp = images.logo.width / images.logo.height;
-      const lW = lH * asp;
+      let lW = lH * asp;
+      // Cap logo width to 40% of container to prevent breaking layout
+      lW = Math.min(lW, (W - pad * 2) * 0.4);
       ctx.globalAlpha = theme.logoAlpha;
       if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
