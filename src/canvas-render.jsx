@@ -321,7 +321,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 };
 
 // Banner layout for GDN ultrawide/skyscraper formats
-// NO photos — pure text + logo + CTA, short-form copy only
+// Supports background images (portrait or AI-generated) with text overlay
 function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent, S, LS) {
   const ratio = W / H;
   const area = W * H;
@@ -334,15 +334,28 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   // Everything else here is a small rect (300×250, 336×280)
   const accentRGB = hexToRgb(accent);
 
-  // Background — flat dark with subtle gradient
-  const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, '#1C2529');
-  bg.addColorStop(1, '#0B1013');
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  // Background — use portrait/AI image if available, otherwise dark gradient
+  if (images.bg) {
+    // Draw background image with focal point
+    const focalY = settings.focalY ?? 0.35;
+    drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
+    // Add dark overlay for text readability
+    const ov = ctx.createLinearGradient(0, 0, 0, H);
+    ov.addColorStop(0, 'rgba(11,16,19,0.4)');
+    ov.addColorStop(0.5, 'rgba(11,16,19,0.65)');
+    ov.addColorStop(1, 'rgba(11,16,19,0.85)');
+    ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
+  } else {
+    // Fallback: dark gradient background
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#1C2529');
+    bg.addColorStop(1, '#0B1013');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  }
 
   // Subtle teal accent glow corner
   const glow = ctx.createRadialGradient(W, H, 0, W, H, Math.max(W, H) * 0.6);
-  glow.addColorStop(0, `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.18)`);
+  glow.addColorStop(0, `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.12)`);
   glow.addColorStop(1, `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0)`);
   ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
 
@@ -354,106 +367,121 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== LEADERBOARDS (320×50, 728×90): single horizontal line =====
   if (isLeaderboard) {
-    const pad = Math.max(6, Math.round(H * 0.22));
+    // Very small: use minimal scale factors
+    const smallScale = Math.min(W, H) / 50;
+    const pad = Math.max(4, Math.round(H * 0.2));
     const midY = H / 2;
-    const fs = Math.max(10, Math.round(H * 0.42));
+    const fs = Math.max(9, Math.round(H * 0.45));
     let x = pad;
 
     // Logo left (if present) — constrained height
     if (images.logo) {
-      const lH = Math.round(H * 0.5);
+      const lH = Math.round(Math.min(H * 0.55, H - 4));
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.85;
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
       ctx.globalAlpha = 1;
-      x += lW + Math.round(H * 0.3);
+      x += lW + Math.round(H * 0.25);
     } else {
       // Teal dot marker
       ctx.fillStyle = accent;
-      ctx.beginPath(); ctx.arc(x + 5, midY, 4, 0, Math.PI * 2); ctx.fill();
-      x += 14;
+      ctx.beginPath(); ctx.arc(x + 4, midY, 3, 0, Math.PI * 2); ctx.fill();
+      x += 12;
     }
 
-    // CTA pill right
-    ctx.font = `700 ${Math.round(fs * 0.9)}px "Plus Jakarta Sans", sans-serif`;
+    // CTA pill right with responsive sizing
+    const ctaFontSize = Math.max(8, Math.round(fs * 0.85));
+    ctx.font = `700 ${ctaFontSize}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(H * 0.22);
+    const ctaPadX = Math.round(ctaFontSize * 0.6);
+    const ctaPadY = Math.round(ctaFontSize * 0.3);
     const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.round(H * 0.66);
-    const ctaX = W - pad - ctaBtnW;
+    const ctaBtnH = Math.min(H - 4, ctaFontSize + ctaPadY * 2);
+    const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
     ctx.fillStyle = accent;
-    drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, ctaBtnH / 2);
+    drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
     ctx.fillStyle = '#0B1013';
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Headline fills remaining space (truncated to fit)
-    const headlineMaxW = ctaX - x - 12;
+    const headlineMaxW = Math.max(30, ctaX - x - 8);
     ctx.font = `700 ${fs}px "Plus Jakarta Sans", sans-serif`;
     ctx.fillStyle = '#FFFFFF';
     const truncated = truncateToWidth(ctx, shortHeadline, headlineMaxW);
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(truncated, x, midY);
     return;
   }
 
   // ===== BILLBOARD (970×250, wide rect): horizontal split =====
   if (isBillboard) {
-    const pad = Math.round(H * 0.15);
+    // Scale based on smaller dimension
+    const bScale = H / 250;
+    const pad = Math.round(H * 0.12);
 
     // Logo top-left small
     if (images.logo) {
-      const lH = Math.round(H * 0.17);
+      const lH = Math.round(H * 0.16);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.85;
       ctx.drawImage(images.logo, pad, pad, lW, lH);
       ctx.globalAlpha = 1;
     }
 
     // Tiny badge below logo
-    const badgeFS = Math.max(9, Math.round(H * 0.055));
+    const badgeFS = Math.max(9, Math.round(H * 0.06));
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
-    const badgeH = Math.round(badgeFS * 1.9);
-    const badgeY = pad + (images.logo ? Math.round(H * 0.17) + 10 : 0);
-    ctx.fillStyle = accent;
-    drawRoundRect(ctx, pad, badgeY, badgeTW + 20, badgeH, 3);
-    ctx.fill();
-    ctx.fillStyle = '#0B1013';
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.fillText(badgeText, pad + 10, badgeY + badgeH / 2 + 1);
+    const badgeH = Math.round(badgeFS * 1.8);
+    const badgeY = pad + (images.logo ? Math.round(H * 0.16) + 8 : 0);
+    const badgeX = pad;
+    if (badgeTW + 18 <= W * 0.25) {
+      ctx.fillStyle = accent;
+      drawRoundRect(ctx, badgeX, badgeY, badgeTW + 18, badgeH, 3);
+      ctx.fill();
+      ctx.fillStyle = '#0B1013';
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.fillText(badgeText, badgeX + 9, badgeY + badgeH / 2 + 1);
+    }
 
-    // Headline — centered vertically, up to 2 lines
-    const hFS = Math.max(18, Math.round(H * 0.16));
+    // Headline — responsive font size, up to 2 lines
+    let hFS = Math.max(16, Math.round(H * 0.15));
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-    const ctaFS = Math.max(11, Math.round(H * 0.1));
-    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
-    const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFS * 0.9);
-    const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.round(ctaFS * 2.4);
-    const ctaX = W - pad - ctaBtnW;
-    const ctaY = (H - ctaBtnH) / 2;
-
-    const headlineMaxW = ctaX - pad - Math.round(W * 0.03);
-    ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-    const hLines = wrapText(ctx, shortHeadline, headlineMaxW).slice(0, 2);
+    let headlineMaxW = W * 0.55 - pad * 1.5;
+    let hLines = wrapText(ctx, shortHeadline, headlineMaxW);
+    while (hLines.length > 2 && hFS > 12) {
+      hFS -= 1;
+      ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
+      hLines = wrapText(ctx, shortHeadline, headlineMaxW);
+    }
+    hLines = hLines.slice(0, 2);
     const hBlockH = hLines.length * hFS * 1.08;
-    let hy = (H - hBlockH) / 2 + hFS * 0.1;
+    let hy = (H - hBlockH) / 2;
     ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, pad, hy); hy += hFS * 1.08; }
 
     // CTA pill right
+    const ctaFS = Math.max(10, Math.round(H * 0.09));
+    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
+    const ctaTW = ctx.measureText(ctaText).width;
+    const ctaPadX = Math.round(ctaFS * 0.8);
+    const ctaPadY = Math.round(ctaFS * 0.4);
+    const ctaBtnW = ctaTW + ctaPadX * 2;
+    const ctaBtnH = ctaFS + ctaPadY * 2;
+    const ctaX = W - pad - ctaBtnW;
+    const ctaY = (H - ctaBtnH) / 2;
     ctx.fillStyle = accent;
-    drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, ctaBtnH / 2);
+    drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
     ctx.fillStyle = '#0B1013';
     ctx.textBaseline = 'middle';
-    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
+    ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Legal
@@ -461,70 +489,74 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-    ctx.fillText(legal, W - pad, H - pad * 0.6);
+    ctx.fillText(legal, W - pad, H - pad * 0.5);
     ctx.textAlign = 'left';
     return;
   }
 
   // ===== SKYSCRAPER (160×600, 300×600): vertical stack =====
   if (isTall) {
-    const pad = Math.round(W * 0.08);
-    const safeTop = pad + 4;
-    const safeBottom = H - pad - 4;
+    // Scale based on width dimension
+    const skScale = W / 300;
+    const pad = Math.round(W * 0.1);
+    const safeTop = pad;
+    const safeBottom = H - pad;
 
     // Logo top
     let yCursor = safeTop;
     if (images.logo) {
-      const lW = Math.round(W * 0.56);
+      const lW = Math.round(W * 0.65);
       const asp = images.logo.width / images.logo.height;
-      const lH = lW / asp;
-      ctx.globalAlpha = 0.9;
+      const lH = Math.min(lW / asp, Math.round(H * 0.12));
+      ctx.globalAlpha = 0.85;
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
       ctx.globalAlpha = 1;
-      yCursor += lH + Math.round(H * 0.025);
+      yCursor += lH + Math.round(H * 0.02);
     }
 
     // Badge
-    const badgeFS = Math.max(8, Math.round(W * 0.065));
+    const badgeFS = Math.max(8, Math.round(W * 0.07));
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
-    const badgeH = Math.round(badgeFS * 1.9);
-    if (badgeTW + 16 <= W - pad * 2) {
+    const badgeH = Math.round(badgeFS * 1.8);
+    if (badgeTW + 14 <= W - pad * 2) {
       ctx.fillStyle = accent;
-      drawRoundRect(ctx, (W - badgeTW - 16) / 2, yCursor, badgeTW + 16, badgeH, 3);
+      drawRoundRect(ctx, (W - badgeTW - 14) / 2, yCursor, badgeTW + 14, badgeH, 3);
       ctx.fill();
       ctx.fillStyle = '#0B1013';
       ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
       ctx.fillText(badgeText, W / 2, yCursor + badgeH / 2 + 1);
-      yCursor += badgeH + Math.round(H * 0.03);
+      yCursor += badgeH + Math.round(H * 0.025);
     }
 
     // CTA at bottom (reserve space)
-    const ctaFS = Math.max(11, Math.round(W * 0.1));
+    const ctaFS = Math.max(10, Math.round(W * 0.11));
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFS * 0.7);
+    const ctaPadX = Math.round(ctaFS * 0.65);
+    const ctaPadY = Math.round(ctaFS * 0.35);
     const ctaBtnW = Math.min(ctaTW + ctaPadX * 2, W - pad * 2);
-    const ctaBtnH = Math.round(ctaFS * 2.2);
+    const ctaBtnH = ctaFS + ctaPadY * 2;
 
     // Legal above CTA at bottom
-    const legalFS = Math.max(7, Math.round(W * 0.055));
-    const legalSpace = legalFS + 10;
+    const legalFS = Math.max(7, Math.round(W * 0.06));
+    const legalSpace = legalFS + 8;
     const ctaY = safeBottom - ctaBtnH - legalSpace;
 
     // Headline — fills middle area
-    const headlineAreaTop = yCursor + 8;
-    const headlineAreaBottom = ctaY - Math.round(H * 0.025);
+    const headlineAreaTop = yCursor + 6;
+    const headlineAreaBottom = ctaY - Math.round(H * 0.02);
     const headlineAreaH = headlineAreaBottom - headlineAreaTop;
 
-    // Try to fit 2-4 lines
-    let hFS = Math.max(14, Math.round(W * 0.13));
+    // Start with reasonable font size and shrink if needed
+    let hFS = Math.max(13, Math.round(W * 0.12));
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
     let hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-    // Shrink if too many lines
-    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 11) {
-      hFS -= 2;
+
+    // Shrink if content doesn't fit
+    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 10) {
+      hFS -= 1;
       ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
       hLines = wrapText(ctx, shortHeadline, W - pad * 2);
     }
@@ -536,7 +568,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
     // CTA pill
     ctx.fillStyle = accent;
-    drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, ctaBtnH / 2);
+    drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
     ctx.fillStyle = '#0B1013';
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
@@ -554,58 +586,59 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== SMALL RECT (300×250, 336×280): compact centered =====
   {
-    const pad = Math.max(10, Math.round(Math.min(W, H) * 0.065));
+    const pad = Math.max(10, Math.round(Math.min(W, H) * 0.08));
     const safeTop = pad;
     const safeBottom = H - pad;
 
     // Logo top-left
     let logoBottomY = safeTop;
     if (images.logo) {
-      const lH = Math.round(H * 0.11);
+      const lH = Math.round(H * 0.1);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.85;
       ctx.drawImage(images.logo, pad, safeTop, lW, lH);
       ctx.globalAlpha = 1;
       logoBottomY = safeTop + lH;
     }
 
     // Badge top-right
-    const badgeFS = Math.max(8, Math.round(H * 0.055));
+    const badgeFS = Math.max(8, Math.round(H * 0.06));
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
-    const badgeH = Math.round(badgeFS * 1.9);
+    const badgeH = Math.round(badgeFS * 1.8);
     const badgeY = safeTop;
-    if (badgeTW + 14 + (logoBottomY > safeTop ? 60 : 0) < W - pad * 2) {
+    if (badgeTW + 12 + (logoBottomY > safeTop ? 60 : 0) < W - pad * 2) {
       ctx.fillStyle = accent;
-      drawRoundRect(ctx, W - pad - badgeTW - 14, badgeY, badgeTW + 14, badgeH, 3);
+      drawRoundRect(ctx, W - pad - badgeTW - 12, badgeY, badgeTW + 12, badgeH, 3);
       ctx.fill();
       ctx.fillStyle = '#0B1013';
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.fillText(badgeText, W - pad - badgeTW - 7, badgeY + badgeH / 2 + 1);
+      ctx.fillText(badgeText, W - pad - badgeTW - 6, badgeY + badgeH / 2 + 1);
     }
 
     // CTA at bottom
-    const ctaFS = Math.max(10, Math.round(H * 0.1));
+    const ctaFS = Math.max(10, Math.round(H * 0.09));
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFS * 0.8);
+    const ctaPadX = Math.round(ctaFS * 0.7);
+    const ctaPadY = Math.round(ctaFS * 0.35);
     const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.round(ctaFS * 2.2);
-    const legalFS = Math.max(8, Math.round(H * 0.045));
-    const legalSpace = legalFS + 8;
+    const ctaBtnH = ctaFS + ctaPadY * 2;
+    const legalFS = Math.max(8, Math.round(H * 0.05));
+    const legalSpace = legalFS + 6;
     const ctaY = safeBottom - ctaBtnH - legalSpace;
 
     // Headline centered in middle area
-    const headlineTop = Math.max(logoBottomY, badgeY + badgeH) + Math.round(H * 0.04);
-    const headlineBottom = ctaY - Math.round(H * 0.03);
+    const headlineTop = Math.max(logoBottomY, badgeY + badgeH) + Math.round(H * 0.035);
+    const headlineBottom = ctaY - Math.round(H * 0.02);
     const headlineAreaH = headlineBottom - headlineTop;
 
-    let hFS = Math.max(14, Math.round(H * 0.15));
+    let hFS = Math.max(13, Math.round(H * 0.14));
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
     let hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 12) {
+    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 11) {
       hFS -= 1;
       ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
       hLines = wrapText(ctx, shortHeadline, W - pad * 2);
@@ -613,17 +646,17 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = headlineTop + (headlineAreaH - hBlockH) / 2;
-    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (const line of hLines) { ctx.fillText(line, pad, hy); hy += hFS * 1.08; }
+    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
     // CTA pill
     ctx.fillStyle = accent;
-    drawRoundRect(ctx, pad, ctaY, ctaBtnW, ctaBtnH, ctaBtnH / 2);
+    drawRoundRect(ctx, (W - ctaBtnW) / 2, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
     ctx.fillStyle = '#0B1013';
     ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
-    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.fillText(ctaText, pad + ctaPadX, ctaY + ctaBtnH / 2 + 1);
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(ctaText, (W - ctaBtnW) / 2 + ctaBtnW / 2, ctaY + ctaBtnH / 2 + 1);
 
     // Legal bottom-right
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
