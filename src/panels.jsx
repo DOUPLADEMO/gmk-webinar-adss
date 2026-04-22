@@ -269,4 +269,214 @@ Adj vissza CSAK JSON-t, semmi más, pontosan ebben a formában:
   );
 }
 
-Object.assign(window, { VariantList, SettingsPanel, AIAssistant, Toggle });
+// --------- Krea AI image generator ---------
+const KREA_MODELS = [
+  { id: 'flux-1-dev',    label: 'Flux 1 Dev',     path: 'bfl/flux-1-dev' },
+  { id: 'imagen-4',      label: 'Imagen 4',       path: 'google/imagen-4' },
+  { id: 'ideogram-3-0',  label: 'Ideogram 3.0',   path: 'ideogram/ideogram-3-0' },
+];
+
+function extractImageUrl(payload) {
+  if (!payload) return null;
+  const candidates = [
+    payload.image_url,
+    payload.url,
+    payload.result?.image_url,
+    payload.result?.url,
+    payload.result?.images?.[0]?.url,
+    payload.result?.images?.[0],
+    payload.output?.image_url,
+    payload.output?.url,
+    payload.output?.images?.[0]?.url,
+    payload.output?.images?.[0],
+    Array.isArray(payload.output) ? payload.output[0] : null,
+    payload.images?.[0]?.url,
+    payload.images?.[0],
+    payload.data?.[0]?.url,
+  ];
+  for (const c of candidates) if (typeof c === 'string' && c.startsWith('http')) return c;
+  return null;
+}
+
+function KreaGenerator({ onGenerated, format }) {
+  const [apiKey, setApiKey] = useState(() => localStorage.getItem('gmk_krea_key') || '');
+  const [showKey, setShowKey] = useState(false);
+  const [prompt, setPrompt] = useState(
+    'Modern, minimalista, homályos irodai háttér lágy teal és kék fényekkel, filmic, shallow depth of field, fotórealisztikus'
+  );
+  const [model, setModel] = useState('flux-1-dev');
+  const [status, setStatus] = useState(null); // {state, message}
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { localStorage.setItem('gmk_krea_key', apiKey); }, [apiKey]);
+
+  const generate = async () => {
+    if (!apiKey.trim()) { setStatus({ state: 'error', message: 'Add meg az API kulcsot.' }); return; }
+    if (!prompt.trim()) { setStatus({ state: 'error', message: 'Írj be egy promptot.' }); return; }
+
+    const m = KREA_MODELS.find(x => x.id === model) || KREA_MODELS[0];
+    const dims = format === '9:16' ? { width: 768, height: 1344 } : { width: 1024, height: 1024 };
+
+    setBusy(true);
+    setStatus({ state: 'queued', message: 'Munka beküldve...' });
+    try {
+      const submit = await fetch(`https://api.krea.ai/generate/image/${m.path}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt, ...dims }),
+      });
+      if (!submit.ok) {
+        const t = await submit.text();
+        throw new Error(`API ${submit.status}: ${t.slice(0, 200)}`);
+      }
+      const job = await submit.json();
+      const jobId = job.job_id || job.id;
+      if (!jobId) {
+        // Some endpoints may return the image synchronously.
+        const direct = extractImageUrl(job);
+        if (direct) {
+          await downloadAndSave(direct, m.id);
+          return;
+        }
+        throw new Error('Nincs job_id a válaszban.');
+      }
+
+      setStatus({ state: 'polling', message: 'Generálás fut... (10–60 mp)' });
+      const start = Date.now();
+      let imageUrl = null;
+      while (Date.now() - start < 180000) {
+        await new Promise(r => setTimeout(r, 2000));
+        const pr = await fetch(`https://api.krea.ai/jobs/${jobId}`, {
+          headers: { 'Authorization': `Bearer ${apiKey.trim()}` },
+        });
+        if (!pr.ok) continue;
+        const pj = await pr.json();
+        const s = (pj.status || '').toLowerCase();
+        if (s === 'completed' || s === 'succeeded' || s === 'done' || s === 'success') {
+          imageUrl = extractImageUrl(pj);
+          break;
+        }
+        if (s === 'failed' || s === 'error' || s === 'canceled' || s === 'cancelled') {
+          throw new Error(pj.error || pj.message || 'Generálás sikertelen');
+        }
+        setStatus({ state: 'polling', message: `Állapot: ${s || 'futás'}...` });
+      }
+      if (!imageUrl) throw new Error('Időtúllépés vagy hiányzó kép URL.');
+      await downloadAndSave(imageUrl, m.id);
+    } catch (e) {
+      console.error('Krea error:', e);
+      const msg = e.message && e.message !== 'Failed to fetch'
+        ? e.message
+        : 'Hálózati / CORS hiba. A Krea API-t böngészőből közvetlenül elérni CORS miatt általában nem lehet — lehet, hogy proxyra van szükséged.';
+      setStatus({ state: 'error', message: msg });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadAndSave = async (imageUrl, modelId) => {
+    setStatus({ state: 'downloading', message: 'Kép letöltése...' });
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) throw new Error(`Kép letöltés ${imgRes.status}`);
+    const blob = await imgRes.blob();
+    const name = `krea-${modelId}-${Date.now()}.png`;
+    await onGenerated(blob, name);
+    setStatus({ state: 'done', message: 'Kész! Háttérként beállítva.' });
+    setTimeout(() => setStatus(null), 3500);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium flex items-center justify-between"
+          style={{ fontFamily: '"DM Sans", sans-serif' }}>
+          <span>Krea API kulcs</span>
+          {apiKey && (
+            <button onClick={() => setShowKey(s => !s)} className="text-[#2DB5A8] normal-case tracking-normal">
+              {showKey ? 'elrejt' : 'mutat'}
+            </button>
+          )}
+        </div>
+        <input
+          type={showKey ? 'text' : 'password'}
+          value={apiKey}
+          onChange={e => setApiKey(e.target.value)}
+          placeholder="krea_..."
+          className="w-full text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-2.5 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#4B5458]"
+          style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}
+        />
+        <div className="text-[10px] text-[#4B5458] mt-1 leading-relaxed">
+          A kulcs csak ebben a böngészőben (localStorage) tárolódik. Szerezhető itt: krea.ai/settings/api-tokens
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1">
+        {KREA_MODELS.map(m => (
+          <button key={m.id}
+            onClick={() => setModel(m.id)}
+            className="text-[10.5px] py-2 px-1 transition-colors"
+            style={{
+              fontFamily: '"DM Sans", sans-serif',
+              background: model === m.id ? '#2DB5A8' : '#0E1417',
+              color: model === m.id ? '#0B0F10' : '#B8C2C6',
+              border: '1px solid ' + (model === m.id ? '#2DB5A8' : '#1C262A'),
+              fontWeight: 500,
+            }}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium"
+          style={{ fontFamily: '"DM Sans", sans-serif' }}>Prompt</div>
+        <textarea
+          value={prompt}
+          onChange={e => setPrompt(e.target.value)}
+          rows={3}
+          className="w-full text-[11.5px] text-white bg-[#0E1417] border border-[#1C262A] p-2.5 outline-none focus:border-[#2DB5A8] resize-none leading-snug"
+          style={{ fontFamily: '"DM Sans", sans-serif' }}
+        />
+        <div className="text-[10px] text-[#4B5458] mt-1">
+          Méret: {format === '9:16' ? '768×1344 (story)' : '1024×1024 (feed)'}
+        </div>
+      </div>
+
+      <button
+        onClick={generate}
+        disabled={busy}
+        className="w-full py-2.5 text-[12px] font-bold tracking-wider transition-colors flex items-center justify-center gap-2"
+        style={{
+          fontFamily: '"Plus Jakarta Sans", sans-serif',
+          background: busy ? '#1F8B82' : '#2DB5A8',
+          color: '#0B0F10',
+          letterSpacing: '0.06em',
+          cursor: busy ? 'not-allowed' : 'pointer',
+        }}
+      >
+        {busy ? (
+          <>
+            <span className="inline-block w-3 h-3 border-2 border-[#0B0F10] border-t-transparent rounded-full animate-spin" />
+            GENERÁLÁS...
+          </>
+        ) : 'GENERÁLJ HÁTTERET'}
+      </button>
+
+      {status && (
+        <div className="text-[11px] leading-snug p-2 border"
+          style={{
+            color: status.state === 'error' ? '#FF6B6B' : status.state === 'done' ? '#2DB5A8' : '#B8C2C6',
+            borderColor: status.state === 'error' ? 'rgba(255,107,107,0.4)' : '#1C262A',
+            background: status.state === 'error' ? 'rgba(255,107,107,0.08)' : '#0E1417',
+          }}>
+          {status.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { VariantList, SettingsPanel, AIAssistant, KreaGenerator, Toggle });

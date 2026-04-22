@@ -174,6 +174,18 @@ function App() {
     setPortraits(prev => [...prev, ...newOnes]);
   };
 
+  // Add an AI-generated image as a portrait and auto-assign to current variant+format.
+  const addGeneratedPortrait = async (blob, name) => {
+    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const url = URL.createObjectURL(blob);
+    const img = await loadImage(url);
+    await dbPut({ id, name, blob });
+    const rec = { id, name, blob, w: img.width, h: img.height, img, url };
+    setPortraits(prev => [...prev, rec]);
+    setAssignments(a => ({ ...a, [`${activeId}_${format}`]: id }));
+    return rec;
+  };
+
   const removePortrait = async id => {
     await dbDelete(id);
     setPortraits(prev => {
@@ -398,7 +410,17 @@ function App() {
           <div className="h-px bg-[#141B1F]" />
 
           <div>
-            <SectionLabel n="04" title="AI szövegíró" />
+            <SectionLabel n="04" title="AI háttérgenerátor · Krea" />
+            <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
+              Generált kép automatikusan bekerül a könyvtárba és a {activeId} · {format} háttere lesz.
+            </div>
+            <KreaGenerator onGenerated={addGeneratedPortrait} format={format} />
+          </div>
+
+          <div className="h-px bg-[#141B1F]" />
+
+          <div>
+            <SectionLabel n="05" title="AI szövegíró" />
             <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
               Új headline variáció az aktív variánshoz ({activeId}).
             </div>
@@ -408,7 +430,7 @@ function App() {
           <div className="h-px bg-[#141B1F]" />
 
           <div>
-            <SectionLabel n="05" title="Exportálás" />
+            <SectionLabel n="06" title="Exportálás" />
             <div className="flex flex-col gap-1.5">
               <ExportBtn onClick={() => downloadOne('1:1')}>
                 <span>Letöltés — 1080×1080</span><span className="text-[10px] text-[#6B777C]">FEED</span>
