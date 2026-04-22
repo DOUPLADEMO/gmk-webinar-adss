@@ -172,9 +172,10 @@ function classifyFormat(W, H) {
 
 const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   // Accept either legacy string ('1:1','9:16') or AD_FORMATS entry {w,h}
-  let W, H;
+  let W, H, formatPlatform = null;
   if (typeof sizeOrFormat === 'object' && sizeOrFormat.w) {
     W = sizeOrFormat.w; H = sizeOrFormat.h;
+    formatPlatform = sizeOrFormat.platform || null;
   } else {
     W = 1080; H = sizeOrFormat === '9:16' ? 1920 : 1080;
   }
@@ -204,7 +205,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   ctx.fillRect(0, 0, W, H);
 
   // ---------- GDN BANNER LAYOUT (all sizes: 300×250, 336×280, 728×90, 320×50, 160×600, 300×600, 970×250) ----------
-  if (settings.platform === 'banner' || isUltrawide) {
+  if (formatPlatform === 'banner' || settings.platform === 'banner' || isUltrawide) {
     renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent, S, LS);
     return;
   }
@@ -327,7 +328,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   }
 
   // Platform: 'fb' = allow subline/label, 'ads' = headline + CTA only (big), else 'fb'
-  const platform = settings.platform || 'fb';
+  const platform = formatPlatform || settings.platform || 'fb';
   const isAds = platform === 'ads';
   renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
