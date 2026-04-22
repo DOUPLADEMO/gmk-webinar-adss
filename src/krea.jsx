@@ -1,67 +1,74 @@
 // Krea.ai API helpers — async job lifecycle
 
 const KREA_BASE = 'https://api.krea.ai';
+const CORSPROXY_IO_URL = 'https://corsproxy.io/';
+const CORSPROXY_API_KEY = '4509bcba'; // corsproxy.io authenticated API key
 
-// Optional CORS proxy prefix — set window.KREA_PROXY to override
-// e.g. 'https://corsproxy.io/?' or your own proxy
-function getProxy() {
-  return (typeof window !== 'undefined' && window.KREA_PROXY) || localStorage.getItem('gmk_krea_proxy') || '';
+// Get proxy settings from localStorage or environment
+function getProxyConfig() {
+  return {
+    url: localStorage.getItem('gmk_proxy_url') || CORSPROXY_IO_URL,
+    apiKey: localStorage.getItem('gmk_proxy_key') || CORSPROXY_API_KEY,
+  };
 }
 
-function proxied(url) {
-  const p = getProxy();
-  return p ? p + encodeURIComponent(url) : url;
+// Build fetch headers with CORS proxy authentication if needed
+function getProxyHeaders(proxyConfig) {
+  if (!proxyConfig.url || proxyConfig.url === KREA_BASE) return {};
+  return proxyConfig.apiKey ? { 'x-cors-api-key': proxyConfig.apiKey } : {};
 }
 
-// Submit a text-to-image job — tries with and without /v1 prefix
-async function kreaGenerateImage({ apiKey, model = 'nano-banana-pro', prompt, width = 1080, height = 1080, steps = 28 }) {
-  // Try primary endpoint first, then v1 prefix
-  const endpoints = [
-    proxied(`${KREA_BASE}/generate/image/${model}`),
-    proxied(`${KREA_BASE}/v1/generate/image/${model}`),
-  ];
+// Build the final URL, proxying through corsproxy.io if configured
+// corsproxy.io format: https://corsproxy.io/?url={target-url}
+function buildProxiedUrl(path, proxyConfig) {
+  const config = proxyConfig || getProxyConfig();
+  if (!config.url || config.url === KREA_BASE) return `${KREA_BASE}${path}`;
+  const targetUrl = `${KREA_BASE}${path}`;
+  // corsproxy.io uses ?url= query parameter
+  return `${config.url}?url=${encodeURIComponent(targetUrl)}`;
+}
 
-  let lastErr = null;
-  for (const url of endpoints) {
-    try {
-      const body = url.includes('/v1/images/generate')
-        ? JSON.stringify({ model, prompt, width, height, steps })
-        : JSON.stringify({ prompt, width, height, steps });
+// Submit a text-to-image job — model should be in format "provider/model-name" e.g. "google/nano-banana-pro"
+async function kreaGenerateImage({ apiKey, model = 'google/nano-banana-pro', prompt, width = 1080, height = 1080, steps = 28 }) {
+  const proxyConfig = getProxyConfig();
+  // Only try the standard endpoint format: /generate/image/{provider}/{model}
+  const path = `/generate/image/${model}`;
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body,
-      });
+  try {
+    const url = buildProxiedUrl(path, proxyConfig);
+    const body = JSON.stringify({ prompt, width, height, steps });
 
-      if (res.status === 404) { lastErr = new Error(`404 – endpoint nem található: ${url}`); continue; }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || err.error || `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      // attach which endpoint worked for polling
-      data._endpoint_base = url.replace(/\/generate.*/, '').replace(/\/v1.*/, '');
-      return data;
-    } catch (e) {
-      if (e.message.startsWith('404')) { lastErr = e; continue; }
-      throw e; // CORS / network error — rethrow immediately
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      ...getProxyHeaders(proxyConfig),
+    };
+
+    const res = await fetch(url, { method: 'POST', headers, body });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || err.error || `HTTP ${res.status}`);
     }
+    const data = await res.json();
+    data._endpoint_path = path;
+    return data;
+  } catch (e) {
+    throw e;
   }
-  throw lastErr || new Error('Minden endpoint 404-et adott vissza.');
 }
 
 // Poll a job until completed or failed. onProgress(status) called each tick.
-async function kreaWaitForJob({ apiKey, jobId, endpointBase, onProgress, maxWaitMs = 120000, intervalMs = 2500 }) {
-  const base = endpointBase || KREA_BASE;
+async function kreaWaitForJob({ apiKey, jobId, endpointPath, onProgress, maxWaitMs = 120000, intervalMs = 2500 }) {
+  const proxyConfig = getProxyConfig();
   const start = Date.now();
   while (Date.now() - start < maxWaitMs) {
-    const res = await fetch(proxied(`${base}/jobs/${jobId}`), {
-      headers: { 'Authorization': `Bearer ${apiKey}` }
-    });
+    const url = buildProxiedUrl(`/jobs/${jobId}`, proxyConfig);
+    const headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      ...getProxyHeaders(proxyConfig),
+    };
+    const res = await fetch(url, { headers });
     if (!res.ok) throw new Error(`Poll HTTP ${res.status}`);
     const job = await res.json();
     onProgress && onProgress(job.status);
@@ -83,7 +90,7 @@ async function kreaGenerate(opts, onStatus) {
   const url = await kreaWaitForJob({
     apiKey: opts.apiKey,
     jobId: job.job_id,
-    endpointBase: job._endpoint_base,
+    endpointPath: job._endpoint_path,
     onProgress: onStatus,
     intervalMs: 2500
   });

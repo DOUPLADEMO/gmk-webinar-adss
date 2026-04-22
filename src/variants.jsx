@@ -127,46 +127,43 @@ function buildStudioAIPrompt(variant, settings, format, customPrompt) {
   const isWide = w > h * 1.5;
   const isUltra = w > h * 3;
 
-  const shapeDesc = isUltra
-    ? `Ultra-wide banner format ${w}×${h}px. Horizontal composition with logo on left, big headline center, CTA right. Minimal photo.`
+  // Background-only prompt: atmospheric visual, no text or overlays baked into the image
+  const atmosphereByTheme = label.toLowerCase().includes('ai') || label.toLowerCase().includes('career')
+    ? 'Modern tech atmosphere: abstract geometric shapes, digital particles, flowing data streams, or subtle futuristic elements'
+    : label.toLowerCase().includes('business')
+    ? 'Professional corporate environment: office space, architectural lines, sophisticated lighting, business dynamics'
+    : label.toLowerCase().includes('growth') || label.toLowerCase().includes('transform')
+    ? 'Dynamic upward motion: ascending lines, growth curves, light rays suggesting progress and transformation'
+    : 'Modern editorial: abstract forms, sophisticated shapes, artistic color blocking';
+
+  const colorContext = settings.accent && settings.accent !== '#2DB5A8'
+    ? `accent light in color ${settings.accent}`
+    : 'accent light in teal (#2DB5A8)';
+
+  const compositionalGuide = isUltra
+    ? 'Ultra-wide horizontal: photo fills entire width, subtle horizontal flow of visual elements'
     : isTall
-    ? `Vertical ${w}×${h}px. Photo top 65%, strong gradient fade to near-black bottom. Text block bottom third.`
+    ? 'Vertical tall: rich atmospheric top 70%, gradually fading to darker bottom area for text overlay'
     : isWide
-    ? `Horizontal ${w}×${h}px. Photo right half, solid dark left panel with text. Split layout.`
-    : `Square ${w}×${h}px. Photo right 55%, dark panel left with text. Premium split.`;
+    ? 'Horizontal landscape: visual elements distributed across, stronger on right side, darkens to left for text'
+    : 'Square balanced: atmospheric elements centered-to-right, left side darker for text overlay';
 
-  const textBlock = isAds
-    ? `EXACT TEXT TO RENDER (pixel-perfect legible, GOOGLE ADS = SHORT + BIG):
-• Top-left small: small Mentor Klub logo (leave space)
-• Main headline (HUGE, extra bold 800, white, fills most of the canvas): "${headline}"
-• CTA text below (bold, teal #2DB5A8): "${cta}"
-• Bottom-right tiny legal text (10px, 40% white): "B/2021/000560, E/2022/000028"
-NO subline, NO label text, NO badge pill. Keep text minimal and impactful.`
-    : isBanner
-    ? `EXACT TEXT TO RENDER (banner — ultra compact):
-• Left: small Mentor Klub logo
-• Center: bold headline "${headline}" (one line if possible)
-• Right: teal CTA "${cta}"
-• Bottom-right tiny: "B/2021/000560, E/2022/000028"`
-    : `EXACT TEXT TO RENDER (FACEBOOK = allows longer text):
-• Top-left: small discrete Mentor Klub logo
-• Badge pill: "INGYENES WEBINÁR" — white text on solid teal (#2DB5A8) pill
-• Main headline (large, extra bold 800, white): "${headline}"
-${subline ? `• Subline (medium, teal #2DB5A8): "${subline}"` : ''}
-• Small label (gray): "${label}"
-• Thin teal horizontal rule (3px)
-• CTA (bold, teal #2DB5A8): "${cta}"
-• Bottom-right tiny legal text (10px, 40% white): "B/2021/000560, E/2022/000028"`;
+  return `Atmospheric BACKGROUND IMAGE ONLY for professional webinar ad. NO TEXT, NO BADGES, NO LOGOS, NO CTA — background only.
 
-  return `Professional ${isAds ? 'Google Ads' : isBanner ? 'Google Display banner' : 'Facebook'} ad creative for a Hungarian webinar. ${shapeDesc}
+Theme: Hungarian tech/career webinar about AI and professional development.
+Visual mood: ${atmosphereByTheme}
+Color palette: Dark professional base (#0B1013–#1C2529 gradient) with ${colorContext}
+Photography/illustration style: Editorial, sophisticated, artistic lighting and composition
+Composition: ${compositionalGuide}
 
-${textBlock}
+Design notes:
+• BACKGROUND IMAGE ONLY — absolutely no text, headlines, badges, logos, CTA buttons, or UI elements in the image
+• Premium, trustworthy, professional B2B aesthetic
+• Strong visual depth and atmospheric quality suitable for tech/career industry
+• High contrast areas where white text will overlay (preserve darker zones for text legibility)
+• Works as backdrop for layered text and UI elements on top
 
-TYPOGRAPHY: Plus Jakarta Sans, extra bold 800 headlines. Professional hierarchy.
-COLORS: Dark slate background (#0B1013 to #1C2529 gradient), teal accent #2DB5A8, white headlines, gray supporting text.
-STYLE: Premium B2B Hungarian webinar ad. Dark, professional, trustworthy. No stock photo clichés.
-LEGAL: Always include tiny "B/2021/000560, E/2022/000028" bottom-right corner.
-FORMAT: ${w}×${h}px.`;
+Format: ${w}×${h}px`;
 }
 
 Object.assign(window, { VARIANTS, CTA_OPTIONS, LAYOUT_OPTIONS, AD_FORMATS, LEGAL_TEXT, buildCreativePrompt, buildStudioAIPrompt });
