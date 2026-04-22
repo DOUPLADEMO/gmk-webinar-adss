@@ -259,25 +259,23 @@ function App() {
 
   const downloadAllZip = async () => {
     if (!window.JSZip) return;
-    setZipProgress({ done: 0, total: variants.length * 2 });
+    setZipProgress({ done: 0, total: AD_FORMATS.length });
     const zip = new JSZip();
-    for (let i = 0; i < variants.length; i++) {
-      for (const fmt of ['1:1', '9:16']) {
-        const c = document.createElement('canvas');
-        const fY = focalY[`${variants[i].id}_${fmt}`] ?? 0.3;
-        renderCreative(c, variants[i], { ...settings, focalY: fY },
-          { logo: logoImg, bg: getBgForVariantFormat(variants[i].id, fmt) }, fmt);
-        const blob = await new Promise(res => c.toBlob(res, 'image/png'));
-        zip.file(`gmk-${variants[i].id}-${fmt === '1:1' ? '1080x1080' : '1080x1920'}.png`, blob);
-        setZipProgress(p => ({ ...p, done: p.done + 1 }));
-        await new Promise(r => setTimeout(r, 0));
-      }
+    for (const fmt of AD_FORMATS) {
+      const c = document.createElement('canvas');
+      const fY = focalY[`${activeId}_${fmt.id}`] ?? 0.3;
+      renderCreative(c, activeVariant, { ...settings, focalY: fY },
+        { logo: logoImg, bg: getBgForVariantFormat(activeId, fmt.id) }, fmt);
+      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+      zip.file(`${activeId}_${fmt.id}.png`, blob);
+      setZipProgress(p => ({ ...p, done: p.done + 1 }));
+      await new Promise(r => setTimeout(r, 0));
     }
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'gmk-kreativok.zip';
+    a.download = `gmk-${activeId}-all-formats.zip`;
     a.click();
     setTimeout(() => { setZipProgress(null); URL.revokeObjectURL(url); }, 600);
   };
