@@ -52,7 +52,7 @@ function loadImage(src) {
 }
 
 function App() {
-  const [mode, setMode] = useState(() => localStorage.getItem('gmk_mode') || 'studio');
+  const [mode, setMode] = useState('studio'); // Creative mode disabled — always Studio
   useEffect(() => { localStorage.setItem('gmk_mode', mode); }, [mode]);
   const [creativeImgs, setCreativeImgs] = useState({}); // { "V1_1:1": HTMLImageElement } for creative mode
   const [studioAIImgs, setStudioAIImgs] = useState({}); // { "V1_1:1": HTMLImageElement } for studio AI
@@ -386,21 +386,7 @@ function App() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-[#6B777C]">Kapcsolódva · Claude</span>
-          {/* Mode toggle */}
-          <div className="flex items-center p-0.5 bg-[#0E1417] border border-[#1C262A]">
-            {[{id:'studio',label:'Studio'},{id:'creative',label:'✦ Creative'}].map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)}
-                className="px-3 py-1 text-[11.5px] font-semibold transition-all"
-                style={{
-                  fontFamily: '"Plus Jakarta Sans", sans-serif',
-                  background: mode === m.id ? (m.id === 'creative' ? '#2DB5A8' : '#1C262A') : 'transparent',
-                  color: mode === m.id ? (m.id === 'creative' ? '#060A0D' : '#FFFFFF') : '#6B777C',
-                  letterSpacing: '0.02em',
-                }}>
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {/* Mode toggle — Creative mode disabled, Studio only */}
         </div>
       </div>
 
