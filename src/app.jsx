@@ -171,7 +171,7 @@ function App() {
     } else if (!isBanner && mode === 'studio' && useStudioAI) {
       const studioAIImg = studioAIImgs[`${activeId}_${format}`] || null;
       renderCreative_studioAI(
-        canvas, activeVariant, { ...settings, platform: currentFmt.platform },
+        canvas, activeVariant, { ...settings, focalY: activeFocalY, platform: currentFmt.platform },
         { logo: logoImg, studioAI: studioAIImg },
         fmtSize
       );
