@@ -415,6 +415,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
   const accentRGB = hexToRgb(accent);
   const theme = getTheme(settings);
 
+  // Unified scaling: all dimensions scale proportionally to banner height
+  // Base height: 250px (reference for small rects, billboards)
+  const bannerScale = H / 250;
+
   // Background — use portrait/AI image if available, otherwise gradient
   if (images.bg) {
     // Draw background image with focal point
@@ -446,16 +450,22 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== LEADERBOARDS (320×50, 728×90): single horizontal line =====
   if (isLeaderboard) {
-    // Very small: use minimal scale factors
-    const smallScale = Math.min(W, H) / 50;
-    const pad = Math.max(4, Math.round(H * 0.2));
+    // Base sizes (reference: typical leaderboard at 90px tall)
+    const basePad = 4;
+    const baseHeadlineFS = 16;
+    const baseDotRadius = 3;
+    const baseCtaPadX = 6;
+    const baseCtaPadY = 3;
+
+    const pad = Math.round(basePad * bannerScale);
     const midY = H / 2;
-    const fs = Math.max(9, Math.round(H * 0.45));
+    const fs = Math.round(baseHeadlineFS * bannerScale);
+    const dotRadius = Math.round(baseDotRadius * bannerScale);
     let x = pad;
 
-    // Logo left (if present) — constrained height
+    // Logo left (if present)
     if (images.logo) {
-      const lH = Math.round(Math.min(H * 0.55, H - 4));
+      const lH = Math.round(H * 0.55);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
@@ -467,19 +477,19 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     } else {
       // Teal dot marker
       ctx.fillStyle = accent;
-      ctx.beginPath(); ctx.arc(x + 4, midY, 3, 0, Math.PI * 2); ctx.fill();
-      x += 12;
+      ctx.beginPath(); ctx.arc(x + dotRadius * 1.5, midY, dotRadius, 0, Math.PI * 2); ctx.fill();
+      x += dotRadius * 5;
     }
 
     // CTA pill right with responsive sizing
-    const ctaFontSize = Math.max(8, Math.round(fs * 0.85));
+    const ctaFontSize = Math.round(fs * 0.85);
+    const ctaPadX = Math.round(baseCtaPadX * bannerScale);
+    const ctaPadY = Math.round(baseCtaPadY * bannerScale);
     ctx.font = `700 ${ctaFontSize}px "Plus Jakarta Sans", sans-serif`;
     const ctaTW = ctx.measureText(ctaText).width;
-    const ctaPadX = Math.round(ctaFontSize * 0.6);
-    const ctaPadY = Math.round(ctaFontSize * 0.3);
     const ctaBtnW = ctaTW + ctaPadX * 2;
-    const ctaBtnH = Math.min(H - 4, ctaFontSize + ctaPadY * 2);
-    const ctaX = Math.max(x + 40, W - pad - ctaBtnW);
+    const ctaBtnH = ctaFontSize + ctaPadY * 2;
+    const ctaX = Math.max(x + pad * 5, W - pad - ctaBtnW);
     const ctaY = (H - ctaBtnH) / 2;
     ctx.fillStyle = theme.ctaBg;
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
@@ -488,25 +498,29 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
-    // Headline fills remaining space (truncated to fit)
-    const headlineMaxW = Math.max(30, ctaX - x - 8);
+    // Headline (no truncation, just display as much as fits naturally)
+    const headlineMaxW = Math.max(20, ctaX - x - pad);
     ctx.font = `700 ${fs}px "Plus Jakarta Sans", sans-serif`;
     ctx.fillStyle = theme.textPrimary;
-    const truncated = truncateToWidth(ctx, shortHeadline, headlineMaxW);
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    ctx.fillText(truncated, x, midY);
+    ctx.fillText(shortHeadline, x, midY);
     return;
   }
 
   // ===== BILLBOARD (970×250, wide rect): horizontal split =====
   if (isBillboard) {
-    // Scale based on smaller dimension
-    const bScale = H / 250;
-    const pad = Math.round(H * 0.12);
+    const basePad = 30;
+    const baseHeadlineFS = 60;
+    const baseBadgeFS = 15;
+    const baseCtaFS = 35;
+    const baseLegalFS = 20;
+    const baseLogoH = 40;
+
+    const pad = Math.round(basePad * bannerScale);
 
     // Logo top-left small
     if (images.logo) {
-      const lH = Math.round(H * 0.16);
+      const lH = Math.round(baseLogoH * bannerScale);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
@@ -516,45 +530,37 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       ctx.globalAlpha = 1;
     }
 
-    // Tiny badge below logo
-    const badgeFS = Math.max(9, Math.round(H * 0.06));
+    // Badge below logo
+    const badgeFS = Math.round(baseBadgeFS * bannerScale);
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
     const badgeH = Math.round(badgeFS * 1.8);
-    const badgeY = pad + (images.logo ? Math.round(H * 0.16) + 8 : 0);
+    const badgeY = pad + (images.logo ? Math.round(baseLogoH * bannerScale) + Math.round(10 * bannerScale) : 0);
     const badgeX = pad;
-    if (badgeTW + 18 <= W * 0.25) {
-      ctx.fillStyle = theme.badgeBg;
-      drawRoundRect(ctx, badgeX, badgeY, badgeTW + 18, badgeH, 3);
-      ctx.fill();
-      ctx.fillStyle = theme.badgeText;
-      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.fillText(badgeText, badgeX + 9, badgeY + badgeH / 2 + 1);
-    }
+    ctx.fillStyle = theme.badgeBg;
+    drawRoundRect(ctx, badgeX, badgeY, badgeTW + Math.round(18 * bannerScale), badgeH, Math.round(3 * bannerScale));
+    ctx.fill();
+    ctx.fillStyle = theme.badgeText;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText(badgeText, badgeX + Math.round(9 * bannerScale), badgeY + badgeH / 2 + 1);
 
-    // Headline — responsive font size, up to 2 lines
-    let hFS = Math.max(16, Math.round(H * 0.15));
+    // Headline
+    const hFS = Math.round(baseHeadlineFS * bannerScale);
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-    let headlineMaxW = W * 0.55 - pad * 1.5;
-    let hLines = wrapText(ctx, shortHeadline, headlineMaxW);
-    while (hLines.length > 2 && hFS > 12) {
-      hFS -= 1;
-      ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-      hLines = wrapText(ctx, shortHeadline, headlineMaxW);
-    }
-    hLines = hLines.slice(0, 2);
+    const headlineMaxW = W * 0.55 - pad * 1.5;
+    const hLines = wrapText(ctx, shortHeadline, headlineMaxW).slice(0, 2);
     const hBlockH = hLines.length * hFS * 1.08;
     let hy = (H - hBlockH) / 2;
     ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, pad, hy); hy += hFS * 1.08; }
 
     // CTA pill right
-    const ctaFS = Math.max(10, Math.round(H * 0.09));
-    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
-    const ctaTW = ctx.measureText(ctaText).width;
+    const ctaFS = Math.round(baseCtaFS * bannerScale);
     const ctaPadX = Math.round(ctaFS * 0.8);
     const ctaPadY = Math.round(ctaFS * 0.4);
+    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
+    const ctaTW = ctx.measureText(ctaText).width;
     const ctaBtnW = ctaTW + ctaPadX * 2;
     const ctaBtnH = ctaFS + ctaPadY * 2;
     const ctaX = W - pad - ctaBtnW;
@@ -563,12 +569,11 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     drawRoundRect(ctx, ctaX, ctaY, ctaBtnW, ctaBtnH, Math.round(ctaBtnH * 0.4));
     ctx.fill();
     ctx.fillStyle = theme.ctaText;
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText(ctaText, ctaX + ctaPadX, ctaY + ctaBtnH / 2 + 1);
 
     // Legal
-    const legalFS = Math.max(8, Math.round(H * 0.05));
+    const legalFS = Math.round(baseLegalFS * bannerScale);
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
     ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
@@ -579,75 +584,71 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== SKYSCRAPER (160×600, 300×600): vertical stack =====
   if (isTall) {
-    // Scale based on width dimension
-    const skScale = W / 300;
-    const pad = Math.round(W * 0.1);
+    const basePad = 30;
+    const baseLogoW = 195;
+    const baseBadgeFS = 20;
+    const baseHeadlineFS = 36;
+    const baseCtaFS = 30;
+    const baseLegalFS = 18;
+    const baseGap = 10;
+
+    const pad = Math.round(basePad * bannerScale);
     const safeTop = pad;
     const safeBottom = H - pad;
 
     // Logo top
     let yCursor = safeTop;
     if (images.logo) {
-      const lW = Math.round(W * 0.65);
+      const lW = Math.round(baseLogoW * bannerScale);
       const asp = images.logo.width / images.logo.height;
-      const lH = Math.min(lW / asp, Math.round(H * 0.12));
+      const lH = Math.round(lW / asp);
       ctx.globalAlpha = theme.logoAlpha;
       if (theme.isLight) ctx.filter = 'invert(1)';
       ctx.drawImage(images.logo, (W - lW) / 2, yCursor, lW, lH);
-      ctx.globalAlpha = 1;
       ctx.filter = 'none';
-      yCursor += lH + Math.round(H * 0.02);
+      ctx.globalAlpha = 1;
+      yCursor += lH + Math.round(10 * bannerScale);
     }
 
     // Badge
-    const badgeFS = Math.max(8, Math.round(W * 0.07));
+    const badgeFS = Math.round(baseBadgeFS * bannerScale);
+    const badgePadX = Math.round(14 * bannerScale);
+    const badgeH = Math.round(badgeFS * 1.8);
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
-    const badgeH = Math.round(badgeFS * 1.8);
-    if (badgeTW + 14 <= W - pad * 2) {
-      ctx.fillStyle = theme.badgeBg;
-      drawRoundRect(ctx, (W - badgeTW - 14) / 2, yCursor, badgeTW + 14, badgeH, 3);
-      ctx.fill();
-      ctx.fillStyle = theme.badgeText;
-      ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-      ctx.fillText(badgeText, W / 2, yCursor + badgeH / 2 + 1);
-      yCursor += badgeH + Math.round(H * 0.025);
-    }
+    ctx.fillStyle = theme.badgeBg;
+    drawRoundRect(ctx, (W - badgeTW - badgePadX * 2) / 2, yCursor, badgeTW + badgePadX * 2, badgeH, Math.round(3 * bannerScale));
+    ctx.fill();
+    ctx.fillStyle = theme.badgeText;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+    ctx.fillText(badgeText, W / 2, yCursor + badgeH / 2 + 1);
+    yCursor += badgeH + Math.round(baseGap * bannerScale);
 
-    // CTA at bottom (reserve space)
-    const ctaFS = Math.max(10, Math.round(W * 0.11));
-    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
-    const ctaTW = ctx.measureText(ctaText).width;
+    // CTA button sizing
+    const ctaFS = Math.round(baseCtaFS * bannerScale);
     const ctaPadX = Math.round(ctaFS * 0.65);
     const ctaPadY = Math.round(ctaFS * 0.35);
-    const ctaBtnW = Math.min(ctaTW + ctaPadX * 2, W - pad * 2);
+    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
+    const ctaTW = ctx.measureText(ctaText).width;
+    const ctaBtnW = ctaTW + ctaPadX * 2;
     const ctaBtnH = ctaFS + ctaPadY * 2;
 
-    // Legal above CTA at bottom
-    const legalFS = Math.max(7, Math.round(W * 0.06));
-    const legalSpace = legalFS + 8;
+    // Legal and CTA spacing
+    const legalFS = Math.round(baseLegalFS * bannerScale);
+    const legalSpace = legalFS + Math.round(16 * bannerScale);
     const ctaY = safeBottom - ctaBtnH - legalSpace;
 
-    // Headline — fills middle area
-    const headlineAreaTop = yCursor + 6;
-    const headlineAreaBottom = ctaY - Math.round(H * 0.02);
-    const headlineAreaH = headlineAreaBottom - headlineAreaTop;
+    // Headline — fits in available space
+    const headlineAreaTop = yCursor;
+    const headlineAreaBottom = ctaY - Math.round(10 * bannerScale);
+    const headlineAreaH = Math.max(0, headlineAreaBottom - headlineAreaTop);
 
-    // Start with reasonable font size and shrink if needed
-    let hFS = Math.max(13, Math.round(W * 0.12));
+    const hFS = Math.round(baseHeadlineFS * bannerScale);
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-    let hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-
-    // Shrink if content doesn't fit
-    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 10) {
-      hFS -= 1;
-      ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-      hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-    }
-    hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
+    const hLines = wrapText(ctx, shortHeadline, W - pad * 2);
     const hBlockH = hLines.length * hFS * 1.08;
-    let hy = headlineAreaTop + (headlineAreaH - hBlockH) / 2;
+    let hy = headlineAreaTop + Math.max(0, (headlineAreaH - hBlockH) / 2);
     ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
@@ -671,68 +672,68 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
 
   // ===== SMALL RECT (300×250, 336×280): compact centered =====
   {
-    const pad = Math.max(10, Math.round(Math.min(W, H) * 0.08));
+    const basePad = 20;
+    const baseLogoH = 25;
+    const baseBadgeFS = 20;
+    const baseHeadlineFS = 42;
+    const baseCtaFS = 28;
+    const baseLegalFS = 16;
+
+    const pad = Math.round(basePad * bannerScale);
     const safeTop = pad;
     const safeBottom = H - pad;
 
     // Logo top-left
     let logoBottomY = safeTop;
     if (images.logo) {
-      const lH = Math.round(H * 0.1);
+      const lH = Math.round(baseLogoH * bannerScale);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
       ctx.globalAlpha = theme.logoAlpha;
-      ctx.drawImage(images.logo, pad, safeTop, lW, lH);
-      ctx.globalAlpha = 1;
       if (theme.isLight) ctx.filter = 'invert(1)';
+      ctx.drawImage(images.logo, pad, safeTop, lW, lH);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
       logoBottomY = safeTop + lH;
     }
-      ctx.filter = 'none';
 
     // Badge top-right
-    const badgeFS = Math.max(8, Math.round(H * 0.06));
+    const badgeFS = Math.round(baseBadgeFS * bannerScale);
+    const badgePadX = Math.round(12 * bannerScale);
+    const badgeH = Math.round(badgeFS * 1.8);
+    const badgeY = safeTop;
     ctx.font = `700 ${badgeFS}px "Plus Jakarta Sans", sans-serif`;
     const badgeText = 'INGYENES WEBINÁR';
     const badgeTW = ctx.measureText(badgeText).width;
-    const badgeH = Math.round(badgeFS * 1.8);
-    const badgeY = safeTop;
-    if (badgeTW + 12 + (logoBottomY > safeTop ? 60 : 0) < W - pad * 2) {
-      ctx.fillStyle = theme.badgeBg;
-      drawRoundRect(ctx, W - pad - badgeTW - 12, badgeY, badgeTW + 12, badgeH, 3);
-      ctx.fill();
-      ctx.fillStyle = theme.badgeText;
-      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      ctx.fillText(badgeText, W - pad - badgeTW - 6, badgeY + badgeH / 2 + 1);
-    }
+    ctx.fillStyle = theme.badgeBg;
+    drawRoundRect(ctx, W - pad - badgeTW - badgePadX * 2, badgeY, badgeTW + badgePadX * 2, badgeH, Math.round(3 * bannerScale));
+    ctx.fill();
+    ctx.fillStyle = theme.badgeText;
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText(badgeText, W - pad - badgeTW - badgePadX, badgeY + badgeH / 2 + 1);
 
-    // CTA at bottom
-    const ctaFS = Math.max(10, Math.round(H * 0.09));
-    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
-    const ctaTW = ctx.measureText(ctaText).width;
+    // CTA and legal sizing
+    const ctaFS = Math.round(baseCtaFS * bannerScale);
     const ctaPadX = Math.round(ctaFS * 0.7);
     const ctaPadY = Math.round(ctaFS * 0.35);
+    ctx.font = `700 ${ctaFS}px "Plus Jakarta Sans", sans-serif`;
+    const ctaTW = ctx.measureText(ctaText).width;
     const ctaBtnW = ctaTW + ctaPadX * 2;
     const ctaBtnH = ctaFS + ctaPadY * 2;
-    const legalFS = Math.max(8, Math.round(H * 0.05));
-    const legalSpace = legalFS + 6;
+    const legalFS = Math.round(baseLegalFS * bannerScale);
+    const legalSpace = legalFS + Math.round(12 * bannerScale);
     const ctaY = safeBottom - ctaBtnH - legalSpace;
 
-    // Headline centered in middle area
-    const headlineTop = Math.max(logoBottomY, badgeY + badgeH) + Math.round(H * 0.035);
-    const headlineBottom = ctaY - Math.round(H * 0.02);
-    const headlineAreaH = headlineBottom - headlineTop;
+    // Headline centered
+    const headlineTop = Math.max(logoBottomY, badgeY + badgeH) + Math.round(14 * bannerScale);
+    const headlineBottom = ctaY - Math.round(8 * bannerScale);
+    const headlineAreaH = Math.max(0, headlineBottom - headlineTop);
 
-    let hFS = Math.max(13, Math.round(H * 0.14));
+    const hFS = Math.round(baseHeadlineFS * bannerScale);
     ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-    let hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-    while ((hLines.length * hFS * 1.08) > headlineAreaH && hFS > 11) {
-      hFS -= 1;
-      ctx.font = `800 ${hFS}px "Plus Jakarta Sans", sans-serif`;
-      hLines = wrapText(ctx, shortHeadline, W - pad * 2);
-    }
-    hLines = hLines.slice(0, Math.max(2, Math.floor(headlineAreaH / (hFS * 1.08))));
+    const hLines = wrapText(ctx, shortHeadline, W - pad * 2);
     const hBlockH = hLines.length * hFS * 1.08;
-    let hy = headlineTop + (headlineAreaH - hBlockH) / 2;
+    let hy = headlineTop + Math.max(0, (headlineAreaH - hBlockH) / 2);
     ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (const line of hLines) { ctx.fillText(line, W / 2, hy); hy += hFS * 1.08; }
 
@@ -745,7 +746,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     ctx.fillText(ctaText, (W - ctaBtnW) / 2 + ctaBtnW / 2, ctaY + ctaBtnH / 2 + 1);
 
-    // Legal bottom-right
+    // Legal
     ctx.font = `500 ${legalFS}px "DM Sans", sans-serif`;
     ctx.fillStyle = theme.textSecondary;
     ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
