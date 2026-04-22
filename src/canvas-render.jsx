@@ -148,6 +148,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   const accentRGB = hexToRgb(accent);
   const layout = settings.layout || 'hero';
   const focalY = settings.focalY ?? 0.35;
+  const theme = getTheme(settings);
 
   // Scale factor relative to 1080px reference
   const S = Math.min(W, H) / 1080;
@@ -155,8 +156,8 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // ---------- BASE BACKGROUND ----------
   const baseGrad = ctx.createLinearGradient(0, 0, W * (isWide ? 1 : 0), H);
-  baseGrad.addColorStop(0, '#1C2529');
-  baseGrad.addColorStop(1, '#0B1013');
+  baseGrad.addColorStop(0, theme.bgGradientTop);
+  baseGrad.addColorStop(1, theme.bgGradientBottom);
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, W, H);
 
@@ -171,25 +172,20 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
     if (layout === 'full-bleed') {
       drawCoverImage(ctx, images.bg, 0, 0, W, H, 0.5, focalY);
       const ov = ctx.createLinearGradient(0, 0, 0, H);
-      ov.addColorStop(0, 'rgba(11,16,19,0.35)');
-      ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
-      ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
-      ov.addColorStop(1, 'rgba(11,16,19,0.98)');
+      applyGradientStops(ov, theme.overlayFull);
       ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
     } else if (layout === 'hero') {
       if (isTall) {
-        // Photo top 72%, fade to slate
+        // Photo top 72%, fade to solid
         const photoH = Math.round(H * 0.72);
         drawCoverImage(ctx, images.bg, 0, 0, W, photoH, 0.5, focalY);
         const fade = ctx.createLinearGradient(0, photoH*0.45, 0, photoH);
-        fade.addColorStop(0, 'rgba(11,16,19,0)');
-        fade.addColorStop(0.5, 'rgba(11,16,19,0.6)');
-        fade.addColorStop(1, 'rgba(11,16,19,1)');
+        applyGradientStops(fade, theme.overlayBottomFade);
         ctx.fillStyle = fade; ctx.fillRect(0, photoH*0.45, W, photoH*0.55+1);
-        ctx.fillStyle = '#0B1013'; ctx.fillRect(0, photoH, W, H-photoH);
+        ctx.fillStyle = theme.solidSide; ctx.fillRect(0, photoH, W, H-photoH);
         // top vignette
         const topV = ctx.createLinearGradient(0,0,0,H*0.18);
-        topV.addColorStop(0,'rgba(11,16,19,0.55)'); topV.addColorStop(1,'rgba(11,16,19,0)');
+        applyGradientStops(topV, theme.overlayTopVignette);
         ctx.fillStyle = topV; ctx.fillRect(0,0,W,H*0.18);
       } else {
         // Shape-aware split: square → photo 52%, landscape → photo 55%
@@ -197,14 +193,12 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
         const photoX = Math.round(W * (1 - photoFrac));
         drawCoverImage(ctx, images.bg, photoX, 0, W-photoX, H, 0.5, focalY);
         const fade = ctx.createLinearGradient(photoX-60, 0, photoX+300, 0);
-        fade.addColorStop(0, '#0B1013');
-        fade.addColorStop(0.5, 'rgba(11,16,19,0.65)');
-        fade.addColorStop(1, 'rgba(11,16,19,0)');
+        applyGradientStops(fade, theme.overlaySideFade);
         ctx.fillStyle = fade; ctx.fillRect(photoX-60, 0, 360, H);
-        ctx.fillStyle = '#0B1013'; ctx.fillRect(0, 0, photoX-60, H);
+        ctx.fillStyle = theme.solidSide; ctx.fillRect(0, 0, photoX-60, H);
         // Bottom shadow
         const bot = ctx.createLinearGradient(0, H-H*0.22, 0, H);
-        bot.addColorStop(0,'rgba(11,16,19,0)'); bot.addColorStop(1,'rgba(11,16,19,0.7)');
+        applyGradientStops(bot, theme.overlayBottomShadow);
         ctx.fillStyle = bot; ctx.fillRect(0, H-H*0.22, W, H*0.22);
       }
     } else if (layout === 'circle') {
@@ -257,7 +251,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // Logo top-left (small, discrete) — render FIRST so we know its height
   const logoBottomSafe = Math.round(H * 0.05);
-  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Badge — position BELOW logo if logo present, else use old top position
   if (settings.showBadge !== false) {
@@ -270,10 +264,10 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
     const ptw = ctx.measureText('INGYENES WEBINÁR').width;
     const padX = Math.round(18 * S);
     const pillW = ptw + padX * 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.badgeBg;
     drawRoundRect(ctx, pillX, pillY, pillW, pillH, 4);
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.badgeText;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText('INGYENES WEBINÁR', pillX+padX, pillY+pillH/2+1);
   }
@@ -293,7 +287,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   // Platform: 'fb' = allow subline/label, 'ads' = headline + CTA only (big), else 'fb'
   const platform = settings.platform || 'fb';
   const isAds = platform === 'ads';
-  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Headline size: MUCH bigger on 'ads' (short text, high impact)
   const hSizeFinal = isAds
@@ -328,9 +322,9 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
 
   // Headline
   ctx.font = `800 ${hSizeFinal}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   if (images.bg && (layout==='full-bleed'||(!isTall&&layout==='hero'))) {
-    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=18;
+    ctx.shadowColor = theme.textShadow; ctx.shadowBlur=18;
   }
   for (const line of hLines) { ctx.fillText(line, sideP, cy); cy+=hLineH; }
   ctx.shadowBlur=0; ctx.shadowColor='transparent';
@@ -347,7 +341,7 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   if (labLines.length) {
     cy += g2 - (sLines.length?sLineH:hLineH)*0.1;
     ctx.font = `500 ${labSize}px "DM Sans", sans-serif`;
-    ctx.fillStyle = '#B8C2C6';
+    ctx.fillStyle = theme.textSecondary;
     for (const line of labLines) { ctx.fillText(line, sideP, cy); cy+=labLineH; }
   }
 
@@ -374,23 +368,23 @@ const renderCreative = (canvas, variant, settings, images, sizeOrFormat) => {
   ctx.shadowColor = `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.35)`;
   ctx.shadowBlur = Math.round(24 * TS);
   ctx.shadowOffsetY = Math.round(8 * TS);
-  ctx.fillStyle = accent;
+  ctx.fillStyle = theme.ctaBg;
   drawRoundRect(ctx, sideP, cy, ctaBtnW, ctaBtnH, ctaRadius);
   ctx.fill();
   ctx.restore();
   // Label
-  ctx.fillStyle = '#0B1013';
+  ctx.fillStyle = theme.ctaText;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(ctaText, sideP + ctaPadX, cy + ctaBtnH / 2 + 1);
   ctx.textBaseline = 'top';
 
   // Legal text bottom-right (mandatory)
-  renderLegalText(ctx, W, H, S, false);
+  renderLegalText(ctx, W, H, S, false, theme);
 
   // Grain
   if (settings.grain !== false && W*H < 3000000) {
-    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = '#FFF';
+    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = theme.grainColor;
     const N = Math.floor((W*H)/5000);
     for (let i=0;i<N;i++) ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
     ctx.restore();
@@ -455,7 +449,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(Math.min(H * 0.55, H - 4));
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, x, (H - lH) / 2, lW, lH);
       ctx.globalAlpha = 1;
       x += lW + Math.round(H * 0.25);
@@ -504,7 +498,7 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
       const lH = Math.round(H * 0.16);
       const asp = images.logo.width / images.logo.height;
       const lW = lH * asp;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = theme.logoAlpha;
       ctx.drawImage(images.logo, pad, pad, lW, lH);
       ctx.globalAlpha = 1;
     }
@@ -518,10 +512,10 @@ function renderBannerLayout(ctx, canvas, variant, settings, images, W, H, accent
     const badgeY = pad + (images.logo ? Math.round(H * 0.16) + 8 : 0);
     const badgeX = pad;
     if (badgeTW + 18 <= W * 0.25) {
-      ctx.fillStyle = accent;
+      ctx.fillStyle = theme.badgeBg;
       drawRoundRect(ctx, badgeX, badgeY, badgeTW + 18, badgeH, 3);
       ctx.fill();
-      ctx.fillStyle = '#0B1013';
+      ctx.fillStyle = theme.badgeText;
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
       ctx.fillText(badgeText, badgeX + 9, badgeY + badgeH / 2 + 1);
     }
@@ -753,7 +747,7 @@ function truncateToWidth(ctx, text, maxW) {
   return s + '…';
 }
 
-function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S) {
+function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S, theme) {
   if (!logo) return 0;
   // Discrete: ~6-7% of canvas width, capped
   const lMaxW = Math.round(Math.min(W * 0.14, Math.max(80, 150*S)));
@@ -761,14 +755,14 @@ function renderLogo(ctx, logo, W, H, sideP, bottomSafe, S) {
   const asp = logo.width / logo.height;
   let lw = lMaxW, lh = lMaxW/asp;
   if (lh > lMaxH) { lh = lMaxH; lw = lMaxH*asp; }
-  ctx.globalAlpha = 0.85;
+  ctx.globalAlpha = theme ? theme.logoAlpha : 0.85;
   // Place top-left with proper margin
   ctx.drawImage(logo, sideP, bottomSafe, lw, lh);
   ctx.globalAlpha = 1;
   return lh;
 }
 
-function renderLegalText(ctx, W, H, S, isTiny) {
+function renderLegalText(ctx, W, H, S, isTiny, theme) {
   if (isTiny) return; // skip on tiny banners (320x50, 728x90)
   const LS = Math.max(W, H) / 1080;
   const fs = Math.max(11, Math.round(16 * LS));
@@ -776,13 +770,13 @@ function renderLegalText(ctx, W, H, S, isTiny) {
   ctx.font = `500 ${fs}px "DM Sans", sans-serif`;
   const text = 'B/2021/000560, E/2022/000028';
   const tw = ctx.measureText(text).width;
-  // Subtle dark backing for legibility on any background (e.g. AI-generated images)
-  ctx.fillStyle = 'rgba(11,16,19,0.55)';
+  // Subtle backing for legibility on any background (e.g. AI-generated images)
+  ctx.fillStyle = theme ? theme.legalBackingFill : 'rgba(11,16,19,0.55)';
   const bx = W - pad - tw - 8;
   const by = H - pad - fs - 4;
   drawRoundRect(ctx, bx, by, tw + 16, fs + 8, 4);
   ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillStyle = theme ? theme.legalText : 'rgba(255,255,255,0.85)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'bottom';
   ctx.fillText(text, W - pad, H - pad);
@@ -811,6 +805,7 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   const accentRGB = hexToRgb(accent);
   const layout = settings.layout || 'hero';
   const focalY = settings.focalY ?? 0.35;
+  const theme = getTheme(settings);
 
   // Scale factor relative to 1080px reference
   const S = Math.min(W, H) / 1080;
@@ -822,16 +817,13 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
     drawCoverImage(ctx, images.studioAI, 0, 0, W, H, 0.5, focalY);
     // Add overlay for text readability
     const ov = ctx.createLinearGradient(0, 0, 0, H);
-    ov.addColorStop(0, 'rgba(11,16,19,0.35)');
-    ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
-    ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
-    ov.addColorStop(1, 'rgba(11,16,19,0.98)');
+    applyGradientStops(ov, theme.overlayFull);
     ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
   } else {
     // Fallback: gradient background if no AI image
     const baseGrad = ctx.createLinearGradient(0, 0, W * (isWide ? 1 : 0), H);
-    baseGrad.addColorStop(0, '#1C2529');
-    baseGrad.addColorStop(1, '#0B1013');
+    baseGrad.addColorStop(0, theme.bgGradientTop);
+    baseGrad.addColorStop(1, theme.bgGradientBottom);
     ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, W, H);
   }
@@ -872,7 +864,7 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
 
   // Logo top-left (small, discrete)
   const logoBottomSafe = Math.round(H * 0.05);
-  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Badge — position BELOW logo if logo present, else use old top position
   if (settings.showBadge !== false) {
@@ -885,10 +877,10 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
     const ptw = ctx.measureText('INGYENES WEBINÁR').width;
     const padX = Math.round(18 * S);
     const pillW = ptw + padX * 2;
-    ctx.fillStyle = accent;
+    ctx.fillStyle = theme.badgeBg;
     drawRoundRect(ctx, pillX, pillY, pillW, pillH, 4);
     ctx.fill();
-    ctx.fillStyle = '#0B1013';
+    ctx.fillStyle = theme.badgeText;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
     ctx.fillText('INGYENES WEBINÁR', pillX+padX, pillY+pillH/2+1);
   }
@@ -908,7 +900,7 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   // Platform: 'fb' = allow subline/label, 'ads' = headline + CTA only
   const platform = settings.platform || 'fb';
   const isAds = platform === 'ads';
-  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S, theme);
 
   // Headline size: MUCH bigger on 'ads'
   const hSizeFinal = isAds
@@ -943,9 +935,9 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
 
   // Headline
   ctx.font = `800 ${hSizeFinal}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = theme.textPrimary; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   if (images.studioAI && (layout==='full-bleed'||(!isTall&&layout==='hero'))) {
-    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=18;
+    ctx.shadowColor = theme.textShadow; ctx.shadowBlur=18;
   }
   for (const line of hLines) { ctx.fillText(line, sideP, cy); cy+=hLineH; }
   ctx.shadowBlur=0; ctx.shadowColor='transparent';
@@ -962,7 +954,7 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   if (labLines.length) {
     cy += g2 - (sLines.length?sLineH:hLineH)*0.1;
     ctx.font = `500 ${labSize}px "DM Sans", sans-serif`;
-    ctx.fillStyle = '#B8C2C6';
+    ctx.fillStyle = theme.textSecondary;
     for (const line of labLines) { ctx.fillText(line, sideP, cy); cy+=labLineH; }
   }
 
@@ -989,23 +981,23 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   ctx.shadowColor = `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.35)`;
   ctx.shadowBlur = Math.round(24 * TS);
   ctx.shadowOffsetY = Math.round(8 * TS);
-  ctx.fillStyle = accent;
+  ctx.fillStyle = theme.ctaBg;
   drawRoundRect(ctx, sideP, cy, ctaBtnW, ctaBtnH, ctaRadius);
   ctx.fill();
   ctx.restore();
   // Label
-  ctx.fillStyle = '#0B1013';
+  ctx.fillStyle = theme.ctaText;
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.fillText(ctaText, sideP + ctaPadX, cy + ctaBtnH / 2 + 1);
   ctx.textBaseline = 'top';
 
   // Legal text bottom-right (mandatory)
-  renderLegalText(ctx, W, H, S, false);
+  renderLegalText(ctx, W, H, S, false, theme);
 
   // Grain
   if (settings.grain !== false && W*H < 3000000) {
-    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = '#FFF';
+    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = theme.grainColor;
     const N = Math.floor((W*H)/5000);
     for (let i=0;i<N;i++) ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
     ctx.restore();
