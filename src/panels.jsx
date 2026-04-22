@@ -640,7 +640,31 @@ function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) 
         <div>
           <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Generált kreativ</div>
           <img src={previewUrl} alt="generated" className="w-full object-cover" style={{ maxHeight: 180, border: '1px solid #2DB5A8' }} />
-          <a href={previewUrl} target="_blank" rel="noopener" className="text-[10px] text-[#2DB5A8] mt-1 block">Megnyitás teljes méretben ↗</a>
+          <div className="flex gap-1.5 mt-2">
+            <button
+              onClick={() => {
+                const a = document.createElement('a');
+                a.href = previewUrl;
+                a.download = `ai-kreativ-${Date.now()}.png`;
+                a.click();
+              }}
+              className="flex-1 text-[10px] text-white bg-[#0E1417] hover:bg-[#111A1D] border border-[#1C262A] px-2 py-1.5 transition-colors"
+            >
+              ⬇ Letöltés
+            </button>
+            <button
+              onClick={() => {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                img.onload = () => onGenerated(img, 'studio');
+                img.src = previewUrl;
+              }}
+              className="flex-1 text-[10px] text-white bg-[#2DB5A8] hover:bg-[#1F9D94] font-bold px-2 py-1.5 transition-colors"
+            >
+              ◆ Háttér
+            </button>
+          </div>
+          <a href={previewUrl} target="_blank" rel="noopener" className="text-[10px] text-[#6B777C] mt-1 block hover:text-[#2DB5A8]">Teljes méretben ↗</a>
         </div>
       )}
     </div>
