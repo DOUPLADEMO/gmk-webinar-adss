@@ -682,7 +682,8 @@ function renderLegalText(ctx, W, H, S, isTiny) {
 
 // Renders AI-generated full creative — just image + logo
 const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat) => {
-  // Render with AI-generated background + full text overlay (same as renderCreative, but with AI image)
+  // SAME LAYOUT AS renderCreative, but background = AI-generated image (images.studioAI)
+  // This ensures pixel-identical composition — only the background changes.
   let W, H;
   if (typeof sizeOrFormat === 'object' && sizeOrFormat.w) {
     W = sizeOrFormat.w; H = sizeOrFormat.h;
@@ -691,109 +692,215 @@ const renderCreative_studioAI = (canvas, variant, settings, images, sizeOrFormat
   }
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
-  const S = Math.min(W, H) / 1080;
 
-  // Draw AI-generated background (fill canvas with AI image)
-  if (images.studioAI) {
-    const scale = Math.max(W / images.studioAI.width, H / images.studioAI.height);
-    const sw = images.studioAI.width * scale, sh = images.studioAI.height * scale;
-    ctx.drawImage(images.studioAI, (W - sw) / 2, (H - sh) / 2, sw, sh);
-  } else {
-    // Fallback if no AI image: solid background
-    ctx.fillStyle = '#0B1013';
-    ctx.fillRect(0, 0, W, H);
-  }
-
-  // Add dark overlay for text readability
-  const ov = ctx.createLinearGradient(0, 0, 0, H);
-  ov.addColorStop(0, 'rgba(11,16,19,0.35)');
-  ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
-  ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
-  ov.addColorStop(1, 'rgba(11,16,19,0.98)');
-  ctx.fillStyle = ov;
-  ctx.fillRect(0, 0, W, H);
+  const shape = classifyFormat(W, H);
+  const isUltrawide = shape === 'ultrawide';
+  const isWide = shape === 'wide' || shape === 'landscape';
+  const isTall = shape === 'tall' || shape === 'portrait';
 
   const accent = settings.accent || '#2DB5A8';
   const accentRGB = hexToRgb(accent);
+  const layout = settings.layout || 'hero';
+  const focalY = settings.focalY ?? 0.35;
 
-  // Determine text positioning based on format
-  const isTall = H > W * 1.3;
+  // Scale factor relative to 1080px reference
+  const S = Math.min(W, H) / 1080;
+  const LS = Math.max(W, H) / 1080; // long-side scale
+
+  // ---------- BASE BACKGROUND (use AI image instead of gradient) ----------
+  if (images.studioAI) {
+    // Fill entire canvas with AI image (full-bleed style)
+    drawCoverImage(ctx, images.studioAI, 0, 0, W, H, 0.5, focalY);
+    // Add overlay for text readability
+    const ov = ctx.createLinearGradient(0, 0, 0, H);
+    ov.addColorStop(0, 'rgba(11,16,19,0.35)');
+    ov.addColorStop(0.35, 'rgba(11,16,19,0.5)');
+    ov.addColorStop(0.7, 'rgba(11,16,19,0.88)');
+    ov.addColorStop(1, 'rgba(11,16,19,0.98)');
+    ctx.fillStyle = ov; ctx.fillRect(0,0,W,H);
+  } else {
+    // Fallback: gradient background if no AI image
+    const baseGrad = ctx.createLinearGradient(0, 0, W * (isWide ? 1 : 0), H);
+    baseGrad.addColorStop(0, '#1C2529');
+    baseGrad.addColorStop(1, '#0B1013');
+    ctx.fillStyle = baseGrad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ---------- GDN BANNER LAYOUT (all sizes) ----------
+  if (settings.platform === 'banner' || isUltrawide) {
+    renderBannerLayout(ctx, canvas, variant, settings, { ...images, bg: images.studioAI }, W, H, accent, S, LS);
+    return;
+  }
+
+  // Accent glow in text area
+  const glow = ctx.createRadialGradient(W*0.12, H*0.85, 0, W*0.12, H*0.85, W*0.5);
+  glow.addColorStop(0,`rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.12)`);
+  glow.addColorStop(1,`rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0)`);
+  ctx.fillStyle = glow; ctx.fillRect(0,0,W,H);
+
+  // ---------- TEXT BLOCK ----------
   const sideP = Math.round(W * 0.065);
-  const topP = isTall ? Math.round(H * 0.12) : Math.round(H * 0.15);
-  const bottomP = Math.round(H * 0.15);
+  const bottomSafe = Math.round(H * (isTall ? 0.055 : 0.075));
+  // Text column width depends on shape
+  let maxTW;
+  if (layout === 'hero' && !isTall && images.studioAI) {
+    const textFrac = shape === 'square' ? 0.48 : 0.45;
+    maxTW = W * textFrac - sideP * 1.4;
+  } else {
+    maxTW = W - sideP * 2;
+  }
 
-  // ---------- BADGE ----------
-  if (settings.showBadge) {
-    const badgeY = topP;
-    const badgeText = 'INGYENES WEBINÁR';
-    ctx.font = `600 ${Math.round(10 * S)}px "Plus Jakarta Sans", sans-serif`;
+  // Sizes scaled to canvas. For landscape formats, use long-side scale (LS)
+  const TS = isWide ? LS * 0.72 : S;  // text-scale
+  const hSize  = Math.round(Math.max(22, (isTall ? 88 : 74) * TS));
+  const sSize  = Math.round(Math.max(14, (isTall ? 40 : 34) * TS));
+  const labSize = Math.round(Math.max(10, (isTall ? 26 : 22) * TS));
+  const ctaSize = Math.round(Math.max(14, (isTall ? 40 : 34) * TS));
+  const pillH  = Math.round(Math.max(22, (isTall ? 54 : 48) * TS));
+  const pillFS = Math.round(Math.max(10, (isTall ? 24 : 22) * TS));
+  const ruleH  = Math.max(2, Math.round(3 * S));
+
+  // Logo top-left (small, discrete)
+  const logoBottomSafe = Math.round(H * 0.05);
+  const logoH = renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+
+  // Badge — position BELOW logo if logo present, else use old top position
+  if (settings.showBadge !== false) {
+    const gap = Math.round(24 * S);
+    const pillX = sideP;
+    const pillY = images.logo
+      ? logoBottomSafe + logoH + gap
+      : Math.round(H * 0.055);
+    ctx.font = `700 ${pillFS}px "Plus Jakarta Sans", sans-serif`;
+    const ptw = ctx.measureText('INGYENES WEBINÁR').width;
+    const padX = Math.round(18 * S);
+    const pillW = ptw + padX * 2;
     ctx.fillStyle = accent;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    const badgeMetrics = ctx.measureText(badgeText);
-    const badgePadX = Math.round(8 * S), badgePadY = Math.round(4 * S);
-    const badgeRectW = badgeMetrics.width + badgePadX * 2;
-    const badgeRectH = Math.round(18 * S);
-    drawRoundRect(ctx, sideP, badgeY, badgeRectW, badgeRectH, Math.round(2 * S));
-    ctx.fillStyle = accent;
+    drawRoundRect(ctx, pillX, pillY, pillW, pillH, 4);
     ctx.fill();
-    ctx.fillStyle = '#0B0F10';
-    ctx.fillText(badgeText, sideP + badgePadX, badgeY + badgePadY);
+    ctx.fillStyle = '#0B1013';
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillText('INGYENES WEBINÁR', pillX+padX, pillY+pillH/2+1);
   }
 
-  // ---------- HEADLINE ----------
-  const headlineY = settings.showBadge ? topP + Math.round(50 * S) : topP;
-  ctx.font = `800 ${Math.round(52 * S)}px "Plus Jakarta Sans", sans-serif`;
-  ctx.fillStyle = '#FFFFFF';
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  const headlineLines = wrapText(ctx, variant.headline, W - sideP * 2);
-  headlineLines.slice(0, isTall ? 3 : 2).forEach((line, i) => {
-    ctx.fillText(line, sideP, headlineY + i * Math.round(58 * S));
-  });
-
-  // ---------- SUBLINE ----------
-  if (variant.subline) {
-    const sublineY = headlineY + (isTall ? 200 : 140) * S;
-    ctx.font = `500 ${Math.round(20 * S)}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(184,194,198,0.8)';
-    ctx.textAlign = 'left';
-    const sublineLines = wrapText(ctx, variant.subline, W - sideP * 2);
-    sublineLines.slice(0, 2).forEach((line, i) => {
-      ctx.fillText(line, sideP, sublineY + i * Math.round(28 * S));
-    });
+  // Date — positioned relative to badge
+  if (settings.dateText?.trim()) {
+    const gap = Math.round(24 * S);
+    const pillY = images.logo
+      ? logoBottomSafe + logoH + gap
+      : Math.round(H * 0.055);
+    const dY = pillY + pillH + Math.round(16*S);
+    ctx.font = `500 ${Math.round(Math.max(10,(isTall?22:20)*S))}px "DM Sans", sans-serif`;
+    ctx.fillStyle = accent; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('◆ '+settings.dateText.trim(), sideP, dY);
   }
 
-  // ---------- CTA BUTTON ----------
-  const ctaY = H - bottomP - Math.round(50 * S);
-  const ctaText = settings.cta || 'Regisztrálj fel rá!';
-  ctx.font = `600 ${Math.round(14 * S)}px "Plus Jakarta Sans", sans-serif`;
-  const ctaMetrics = ctx.measureText(ctaText);
-  const ctaPadX = Math.round(16 * S), ctaPadY = Math.round(10 * S);
-  const ctaBtnW = ctaMetrics.width + ctaPadX * 2;
-  const ctaBtnH = Math.round(38 * S);
-  drawRoundRect(ctx, sideP, ctaY, ctaBtnW, ctaBtnH, Math.round(4 * S));
+  // Platform: 'fb' = allow subline/label, 'ads' = headline + CTA only
+  const platform = settings.platform || 'fb';
+  const isAds = platform === 'ads';
+  renderLogo(ctx, images.logo, W, H, sideP, logoBottomSafe, S);
+
+  // Headline size: MUCH bigger on 'ads'
+  const hSizeFinal = isAds
+    ? Math.round(Math.max(28, (isTall ? 112 : 96) * S))
+    : hSize;
+
+  // Compute block
+  ctx.font = `800 ${hSizeFinal}px "Plus Jakarta Sans", sans-serif`;
+  const hLines = wrapText(ctx, variant.headline, maxTW);
+  ctx.font = `500 ${sSize}px "DM Sans", sans-serif`;
+  const sLines = (!isAds && variant.subline) ? wrapText(ctx, variant.subline, maxTW) : [];
+  ctx.font = `500 ${labSize}px "DM Sans", sans-serif`;
+  const labLines = isAds ? [] : wrapText(ctx, variant.label, maxTW);
+
+  const hLineH = hSizeFinal * 1.05, sLineH = sSize * 1.2, labLineH = labSize * 1.35;
+  const g1=Math.round(22*S), g2=Math.round(30*S), g3=Math.round(20*S), g4=Math.round(24*S);
+
+  // Pill button adds padding
+  const _ctaSizeForH = isAds
+    ? Math.round(Math.max(18, (isTall ? 54 : 46) * TS))
+    : ctaSize;
+  const _ctaBtnH = _ctaSizeForH + Math.round(_ctaSizeForH * 0.55) * 2;
+
+  const blockH = hLines.length*hLineH
+    + (sLines.length ? g1 + sLines.length*sLineH : 0)
+    + (labLines.length ? g2 + labLines.length*labLineH : 0)
+    + g3 + ruleH + g4 + _ctaBtnH;
+
+  // Reserve space at bottom for legal text
+  const legalSpace = Math.round(18 * S);
+  let cy = H - bottomSafe - legalSpace - blockH;
+
+  // Headline
+  ctx.font = `800 ${hSizeFinal}px "Plus Jakarta Sans", sans-serif`;
+  ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  if (images.studioAI && (layout==='full-bleed'||(!isTall&&layout==='hero'))) {
+    ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=18;
+  }
+  for (const line of hLines) { ctx.fillText(line, sideP, cy); cy+=hLineH; }
+  ctx.shadowBlur=0; ctx.shadowColor='transparent';
+
+  // Subline (FB only)
+  if (sLines.length) {
+    cy += g1 - hLineH*0.1;
+    ctx.font = `500 ${sSize}px "DM Sans", sans-serif`;
+    ctx.fillStyle = accent;
+    for (const line of sLines) { ctx.fillText(line, sideP, cy); cy+=sLineH; }
+  }
+
+  // Label (FB only)
+  if (labLines.length) {
+    cy += g2 - (sLines.length?sLineH:hLineH)*0.1;
+    ctx.font = `500 ${labSize}px "DM Sans", sans-serif`;
+    ctx.fillStyle = '#B8C2C6';
+    for (const line of labLines) { ctx.fillText(line, sideP, cy); cy+=labLineH; }
+  }
+
+  // Rule
+  cy += g3 - (labLines.length?labLineH:(sLines.length?sLineH:hLineH))*0.1;
   ctx.fillStyle = accent;
+  ctx.fillRect(sideP, cy, Math.round((isTall?96:80)*S), ruleH);
+  cy += ruleH + g4;
+
+  // CTA — filled pill button
+  const ctaSizeFinal = isAds
+    ? Math.round(Math.max(18, (isTall ? 54 : 46) * TS))
+    : ctaSize;
+  const ctaText = settings.cta || 'Regisztrálj fel rá!';
+  ctx.font = `700 ${ctaSizeFinal}px "Plus Jakarta Sans", sans-serif`;
+  const ctaTW = ctx.measureText(ctaText).width;
+  const ctaPadX = Math.round(ctaSizeFinal * 0.85);
+  const ctaPadY = Math.round(ctaSizeFinal * 0.55);
+  const ctaBtnW = ctaTW + ctaPadX * 2;
+  const ctaBtnH = ctaSizeFinal + ctaPadY * 2;
+  const ctaRadius = Math.round(ctaBtnH * 0.5); // fully rounded pill
+  // Subtle teal glow
+  ctx.save();
+  ctx.shadowColor = `rgba(${accentRGB.r},${accentRGB.g},${accentRGB.b},0.35)`;
+  ctx.shadowBlur = Math.round(24 * TS);
+  ctx.shadowOffsetY = Math.round(8 * TS);
+  ctx.fillStyle = accent;
+  drawRoundRect(ctx, sideP, cy, ctaBtnW, ctaBtnH, ctaRadius);
   ctx.fill();
-  ctx.fillStyle = '#0B0F10';
-  ctx.fillText(ctaText, sideP + ctaPadX, ctaY + ctaPadY);
+  ctx.restore();
+  // Label
+  ctx.fillStyle = '#0B1013';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText(ctaText, sideP + ctaPadX, cy + ctaBtnH / 2 + 1);
+  ctx.textBaseline = 'top';
 
-  // ---------- DATE TEXT (optional) ----------
-  if (settings.dateText) {
-    const dateY = ctaY - Math.round(50 * S);
-    ctx.font = `400 ${Math.round(12 * S)}px "DM Sans", sans-serif`;
-    ctx.fillStyle = 'rgba(184,194,198,0.6)';
-    ctx.textAlign = 'left';
-    ctx.fillText(settings.dateText, sideP, dateY);
-  }
-
-  // ---------- LOGO ----------
-  const logoX = W - sideP - Math.round(80 * S);
-  const logoY = H - bottomP - Math.round(40 * S);
-  renderLogo(ctx, images.logo, W, H, logoX, logoY, S);
-
-  // ---------- LEGAL TEXT ----------
+  // Legal text bottom-right (mandatory)
   renderLegalText(ctx, W, H, S, false);
+
+  // Grain
+  if (settings.grain !== false && W*H < 3000000) {
+    ctx.save(); ctx.globalAlpha = 0.03; ctx.fillStyle = '#FFF';
+    const N = Math.floor((W*H)/5000);
+    for (let i=0;i<N;i++) ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+    ctx.restore();
+  }
 };
 
 Object.assign(window, { renderCreative, wrapText, renderCreative_studioAI });
