@@ -1,4 +1,4 @@
-// Main App with portrait library + Creative Mode.
+// Main App with portrait library.
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -52,11 +52,6 @@ function loadImage(src) {
 }
 
 function App() {
-  const [mode, setMode] = useState(() => localStorage.getItem('gmk_mode') || 'studio');
-  useEffect(() => { localStorage.setItem('gmk_mode', mode); }, [mode]);
-  const [creativeImgs, setCreativeImgs] = useState({}); // { "V1_1:1": HTMLImageElement } for creative mode
-  const [studioAIImgs, setStudioAIImgs] = useState({}); // { "V1_1:1": HTMLImageElement } for studio AI
-  const [useStudioAI, setUseStudioAI] = useState(() => localStorage.getItem('gmk_use_studio_ai') === 'true');
   const [activeId, setActiveId] = useState(() => localStorage.getItem('gmk_active') || 'V9');
   const [variants, setVariants] = useState(VARIANTS);
   const [settings, setSettings] = useState(() => {
@@ -66,10 +61,7 @@ function App() {
     } catch {}
     return defaultSettings();
   });
-  const [format, setFormat] = useState(() => {
-    const saved = localStorage.getItem('gmk_format');
-    return saved || 'fb_square';
-  });
+  const [format, setFormat] = useState('1:1');
   const [fontsReady, setFontsReady] = useState(false);
   const [logoImg, setLogoImg] = useState(null);
   const [portraits, setPortraits] = useState([]); // [{id, name, blob, w, h, img, url}]
@@ -84,7 +76,6 @@ function App() {
 
   const previewRef = useRef(null);
 
-  useEffect(() => { localStorage.setItem('gmk_use_studio_ai', useStudioAI); }, [useStudioAI]);
   useEffect(() => { localStorage.setItem('gmk_active', activeId); }, [activeId]);
   useEffect(() => { localStorage.setItem('gmk_settings', JSON.stringify(settings)); }, [settings]);
   useEffect(() => { localStorage.setItem('gmk_assign', JSON.stringify(assignments)); }, [assignments]);
@@ -104,7 +95,8 @@ function App() {
 
   // Load logo
   useEffect(() => {
-    loadImage('assets/logo-white.png').then(setLogoImg).catch(() => {});
+    const logoSrc = (window.__resources && window.__resources.logoWhite) || 'assets/logo-white.png';
+    loadImage(logoSrc).then(setLogoImg).catch(() => {});
   }, []);
 
   // Load stored portraits from IDB on mount
@@ -124,10 +116,6 @@ function App() {
   }, []);
 
   const activeVariant = variants.find(v => v.id === activeId) || variants[0];
-
-  // Current format object
-  const currentFmt = AD_FORMATS.find(f => f.id === format) || AD_FORMATS[0];
-  const fmtSize = { w: currentFmt.w, h: currentFmt.h };
 
   // Current portrait for this variant+format
   const currentPortrait = useMemo(() => {
@@ -158,32 +146,13 @@ function App() {
     if (!fontsReady) return;
     const canvas = previewRef.current;
     if (!canvas) return;
-    // GDN banners ALWAYS use the dedicated banner layout — no photo, no AI image
-    const isBanner = currentFmt.platform === 'banner';
-    if (!isBanner && mode === 'creative') {
-      const creativeImg = creativeImgs[`${activeId}_${format}`] || null;
-      renderCreative_creative(
-        canvas, activeVariant,
-        { ...settings, focalY: activeFocalY, platform: currentFmt.platform },
-        { logo: logoImg, creative: creativeImg },
-        fmtSize
-      );
-    } else if (!isBanner && mode === 'studio' && useStudioAI) {
-      const studioAIImg = studioAIImgs[`${activeId}_${format}`] || null;
-      renderCreative_studioAI(
-        canvas, activeVariant, { ...settings, platform: currentFmt.platform },
-        { logo: logoImg, studioAI: studioAIImg },
-        fmtSize
-      );
-    } else {
-      renderCreative(
-        canvas, activeVariant,
-        { ...settings, focalY: activeFocalY, platform: currentFmt.platform },
-        { logo: logoImg, bg: isBanner ? null : (currentPortrait?.img || null) },
-        fmtSize
-      );
-    }
-  }, [fontsReady, activeVariant, settings, format, logoImg, currentPortrait, activeFocalY, mode, creativeImgs, studioAIImgs, useStudioAI]);
+    renderCreative(
+      canvas, activeVariant,
+      { ...settings, focalY: activeFocalY },
+      { logo: logoImg, bg: currentPortrait?.img || null },
+      format
+    );
+  }, [fontsReady, activeVariant, settings, format, logoImg, currentPortrait, activeFocalY]);
 
   const onLogoUpload = e => {
     const f = e.target.files?.[0];
@@ -245,15 +214,6 @@ function App() {
     setVariants(vs => vs.map(v => v.id === activeId ? { ...v, headline } : v));
   };
 
-  const onCreativeGenerated = (img, modeType, fallbackUrl) => {
-    const key = `${activeId}_${format}`;
-    if (modeType === 'studio') {
-      if (img) setStudioAIImgs(prev => ({ ...prev, [key]: img }));
-    } else {
-      if (img) setCreativeImgs(prev => ({ ...prev, [key]: img }));
-    }
-  };
-
   const getBgForVariantFormat = (vId, fmt) => {
     const key = `${vId}_${fmt}`;
     const explicit = assignments[key];
@@ -273,53 +233,33 @@ function App() {
     return sorted[0].img;
   };
 
-  const downloadOne = () => {
+  const downloadOne = (fmt) => {
     const c = document.createElement('canvas');
-    const fY = focalY[`${activeId}_${format}`] ?? 0.3;
-    const isBanner = currentFmt.platform === 'banner';
-    if (!isBanner && mode === 'creative') {
-      const ci = creativeImgs[`${activeId}_${format}`] || null;
-      renderCreative_creative(c, activeVariant, { ...settings, focalY: fY, platform: currentFmt.platform },
-        { logo: logoImg, creative: ci }, fmtSize);
-    } else if (!isBanner && mode === 'studio' && useStudioAI) {
-      const si = studioAIImgs[`${activeId}_${format}`] || null;
-      renderCreative_studioAI(c, activeVariant, { ...settings, platform: currentFmt.platform },
-        { logo: logoImg, studioAI: si }, fmtSize);
-    } else {
-      renderCreative(c, activeVariant, { ...settings, focalY: fY, platform: currentFmt.platform },
-        { logo: logoImg, bg: isBanner ? null : getBgForVariantFormat(activeId, format) }, fmtSize);
-    }
+    const fY = focalY[`${activeId}_${fmt}`] ?? 0.3;
+    renderCreative(c, activeVariant, { ...settings, focalY: fY },
+      { logo: logoImg, bg: getBgForVariantFormat(activeId, fmt) }, fmt);
     const url = c.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gmk-${activeVariant.id}-${currentFmt.w}x${currentFmt.h}.png`;
+    a.download = `gmk-${activeVariant.id}-${fmt === '1:1' ? '1080x1080' : '1080x1920'}.png`;
     a.click();
   };
 
   const downloadAllZip = async () => {
     if (!window.JSZip) return;
-    setZipProgress({ done: 0, total: variants.length });
+    setZipProgress({ done: 0, total: variants.length * 2 });
     const zip = new JSZip();
     for (let i = 0; i < variants.length; i++) {
-      const c = document.createElement('canvas');
-      const fY = focalY[`${variants[i].id}_${format}`] ?? 0.3;
-      const isBanner = currentFmt.platform === 'banner';
-      if (!isBanner && mode === 'creative') {
-        const ci = creativeImgs[`${variants[i].id}_${format}`] || null;
-        renderCreative_creative(c, variants[i], { ...settings, focalY: fY, platform: currentFmt.platform },
-          { logo: logoImg, creative: ci }, fmtSize);
-      } else if (!isBanner && mode === 'studio' && useStudioAI) {
-        const si = studioAIImgs[`${variants[i].id}_${format}`] || null;
-        renderCreative_studioAI(c, variants[i], { ...settings, platform: currentFmt.platform },
-          { logo: logoImg, studioAI: si }, fmtSize);
-      } else {
-        renderCreative(c, variants[i], { ...settings, focalY: fY, platform: currentFmt.platform },
-          { logo: logoImg, bg: isBanner ? null : getBgForVariantFormat(variants[i].id, format) }, fmtSize);
+      for (const fmt of ['1:1', '9:16']) {
+        const c = document.createElement('canvas');
+        const fY = focalY[`${variants[i].id}_${fmt}`] ?? 0.3;
+        renderCreative(c, variants[i], { ...settings, focalY: fY },
+          { logo: logoImg, bg: getBgForVariantFormat(variants[i].id, fmt) }, fmt);
+        const blob = await new Promise(res => c.toBlob(res, 'image/png'));
+        zip.file(`gmk-${variants[i].id}-${fmt === '1:1' ? '1080x1080' : '1080x1920'}.png`, blob);
+        setZipProgress(p => ({ ...p, done: p.done + 1 }));
+        await new Promise(r => setTimeout(r, 0));
       }
-      const blob = await new Promise(res => c.toBlob(res, 'image/png'));
-      zip.file(`gmk-${variants[i].id}-${currentFmt.w}x${currentFmt.h}.png`, blob);
-      setZipProgress(p => ({ ...p, done: p.done + 1 }));
-      await new Promise(r => setTimeout(r, 0));
     }
     const content = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(content);
@@ -330,11 +270,9 @@ function App() {
     setTimeout(() => { setZipProgress(null); URL.revokeObjectURL(url); }, 600);
   };
 
-  // Preview sizing — max 460px on longest side
-  const PREVIEW_MAX = 460;
-  const fmtAspect = currentFmt.w / currentFmt.h;
-  const aspectW = fmtAspect >= 1 ? PREVIEW_MAX : Math.round(PREVIEW_MAX * fmtAspect);
-  const aspectH = fmtAspect >= 1 ? Math.round(PREVIEW_MAX / fmtAspect) : PREVIEW_MAX;
+  const previewMaxW = 440;
+  const aspectH = format === '1:1' ? previewMaxW : previewMaxW * (1920/1080);
+  const aspectW = previewMaxW;
 
   return (
     <div className="min-h-screen text-white" style={{ background: '#060809', fontFamily: '"DM Sans", sans-serif' }}>
@@ -353,23 +291,11 @@ function App() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-[#6B777C]">Kapcsolódva · Claude</span>
-          {/* Mode toggle */}
-          <div className="flex items-center p-0.5 bg-[#0E1417] border border-[#1C262A]">
-            {[{id:'studio',label:'Studio'},{id:'creative',label:'✦ Creative'}].map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)}
-                className="px-3 py-1 text-[11.5px] font-semibold transition-all"
-                style={{
-                  fontFamily: '"Plus Jakarta Sans", sans-serif',
-                  background: mode === m.id ? (m.id === 'creative' ? '#2DB5A8' : '#1C262A') : 'transparent',
-                  color: mode === m.id ? (m.id === 'creative' ? '#060A0D' : '#FFFFFF') : '#6B777C',
-                  letterSpacing: '0.02em',
-                }}>
-                {m.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-3 text-[11px] text-[#6B777C]">
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2DB5A8]" />
+            Kapcsolódva · Claude
+          </span>
         </div>
       </div>
 
@@ -392,7 +318,23 @@ function App() {
 
         {/* CENTER */}
         <main className="flex flex-col items-center px-6 py-6 gap-4">
-          <FormatPicker format={format} setFormat={setFormat} />
+          <div className="flex items-center gap-1 p-1 bg-[#0E1417] border border-[#1C262A]">
+            {[
+              { id: '1:1', label: '1:1 · Feed · 1080×1080' },
+              { id: '9:16', label: '9:16 · Story · 1080×1920' },
+            ].map(t => (
+              <button key={t.id}
+                onClick={() => setFormat(t.id)}
+                className="px-4 py-1.5 text-[11.5px] transition-colors"
+                style={{
+                  fontWeight: 500,
+                  background: format === t.id ? '#2DB5A8' : 'transparent',
+                  color: format === t.id ? '#0B0F10' : '#B8C2C6',
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
 
           <div className="relative" style={{ width: aspectW, height: aspectH, boxShadow: '0 30px 80px -20px rgba(0,0,0,0.7), 0 0 0 1px #141B1F' }}>
             <canvas ref={previewRef} style={{ width: '100%', height: '100%', display: 'block' }} />
@@ -406,7 +348,7 @@ function App() {
           <div className="flex items-center gap-5 text-[10.5px] text-[#6B777C]" style={{ letterSpacing: '0.08em' }}>
             <span>VARIÁNS <span className="text-[#2DB5A8]">{activeVariant.id}</span></span>
             <span>•</span>
-            <span>{currentFmt.w}×{currentFmt.h}px</span>
+            <span>{format === '1:1' ? '1080×1080' : '1080×1920'}</span>
             <span>•</span>
             <span>LAYOUT: {LAYOUT_OPTIONS.find(l => l.id === settings.layout)?.label.toUpperCase()}</span>
             {currentPortrait && <><span>•</span><span className="truncate max-w-[140px]">📷 {currentPortrait.name.replace(/\.[^.]+$/,'')}</span></>}
@@ -440,100 +382,53 @@ function App() {
 
         {/* RIGHT */}
         <aside className="border-l border-[#141B1F] p-4 overflow-y-auto flex flex-col gap-5" style={{ maxHeight: 'calc(100vh - 57px)' }}>
-          {mode === 'creative' ? (
-            <>
-              <div>
-                <SectionLabel n="03" title="Creative AI — Krea.ai" />
-                <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
-                  AI-generált háttér a kreatívhoz. Válassz stílust, majd kattints a generálásra.
+          <div>
+            <SectionLabel n="03" title="Portré könyvtár" />
+            <PortraitLibrary
+              portraits={portraits}
+              activeId={activeId}
+              format={format}
+              assignments={assignments}
+              onUpload={onPortraitUpload}
+              onAssign={assignPortrait}
+              onRemove={removePortrait}
+              onAutoAssign={autoAssignAll}
+            />
+          </div>
+
+          <div className="h-px bg-[#141B1F]" />
+
+          <div>
+            <SectionLabel n="04" title="AI szövegíró" />
+            <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
+              Új headline variáció az aktív variánshoz ({activeId}).
+            </div>
+            <AIAssistant onPick={pickAIHeadline} />
+          </div>
+
+          <div className="h-px bg-[#141B1F]" />
+
+          <div>
+            <SectionLabel n="05" title="Exportálás" />
+            <div className="flex flex-col gap-1.5">
+              <ExportBtn onClick={() => downloadOne('1:1')}>
+                <span>Letöltés — 1080×1080</span><span className="text-[10px] text-[#6B777C]">FEED</span>
+              </ExportBtn>
+              <ExportBtn onClick={() => downloadOne('9:16')}>
+                <span>Letöltés — 1080×1920</span><span className="text-[10px] text-[#6B777C]">STORY</span>
+              </ExportBtn>
+              <button onClick={downloadAllZip} disabled={!!zipProgress}
+                className="mt-2 px-3 py-2.5 text-[12px] font-bold transition-colors flex items-center justify-between"
+                style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', background: '#2DB5A8', color: '#0B0F10', letterSpacing: '0.04em' }}>
+                <span>{zipProgress ? `Export ${zipProgress.done}/${zipProgress.total}` : 'Mind exportálása (ZIP)'}</span><span>↓</span>
+              </button>
+              {zipProgress && (
+                <div className="h-0.5 bg-[#1C262A] overflow-hidden">
+                  <div className="h-full bg-[#2DB5A8] transition-all" style={{ width: `${(zipProgress.done / zipProgress.total) * 100}%` }} />
                 </div>
-                <CreativePanel
-                  variant={activeVariant}
-                  settings={settings}
-                  setSettings={setSettings}
-                  format={fmtSize}
-                  onGenerated={onCreativeGenerated}
-                />
-              </div>
-              <div className="h-px bg-[#141B1F]" />
-              <div>
-                <SectionLabel n="04" title="Exportálás" />
-                <div className="flex flex-col gap-1.5">
-                  <ExportBtn onClick={() => downloadOne()}><span>Letöltés — {currentFmt.w}×{currentFmt.h}</span><span className="text-[10px] text-[#6B777C]">{currentFmt.label.toUpperCase()}</span></ExportBtn>
-                  <button onClick={downloadAllZip} disabled={!!zipProgress}
-                    className="mt-2 px-3 py-2.5 text-[12px] font-bold transition-colors flex items-center justify-between"
-                    style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', background: '#2DB5A8', color: '#060A0D', letterSpacing: '0.04em' }}>
-                    <span>{zipProgress ? `Export ${zipProgress.done}/${zipProgress.total}` : 'Mind exportálása (ZIP)'}</span><span>↓</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <SectionLabel n="03" title="Portré könyvtár" />
-                <PortraitLibrary
-                  portraits={portraits}
-                  activeId={activeId}
-                  format={format}
-                  assignments={assignments}
-                  onUpload={onPortraitUpload}
-                  onAssign={assignPortrait}
-                  onRemove={removePortrait}
-                  onAutoAssign={autoAssignAll}
-                />
-              </div>
-              <div className="h-px bg-[#141B1F]" />
-              <div>
-                {/* Studio AI toggle */}
-                <div className="flex items-center justify-between mb-3">
-                  <SectionLabel n="04" title="AI Kreativ (Nano Banana)" />
-                </div>
-                <div className="flex items-center justify-between mb-3 -mt-2">
-                  <span className="text-[11px] text-[#B8C2C6]">AI generált kreativ mode</span>
-                  <Toggle on={useStudioAI} onChange={setUseStudioAI} />
-                </div>
-                {useStudioAI ? (
-                  <StudioAIPanel
-                    variant={activeVariant}
-                    settings={settings}
-                    setSettings={setSettings}
-                    format={fmtSize}
-                    onGenerated={onCreativeGenerated}
-                  />
-                ) : (
-                  <div className="text-[11px] text-[#4B5458] leading-snug border border-dashed border-[#1C262A] p-3">
-                    Kapcsold be az AI módot: a Nano Banana Pro beleégeti a szöveget, elrendezést és effekteket a képbe. Sokkal kreatívabb eredmény — a stúdió csak a logót rakja rá.
-                  </div>
-                )}
-              </div>
-              <div className="h-px bg-[#141B1F]" />
-              <div>
-                <SectionLabel n="05" title="AI Szövegíró" />
-                <div className="text-[11px] text-[#6B777C] -mt-2 mb-3 leading-snug">
-                  Új headline variáció az aktív variánshoz ({activeId}).
-                </div>
-                <AIAssistant onPick={pickAIHeadline} />
-              </div>
-              <div className="h-px bg-[#141B1F]" />
-              <div>
-                <SectionLabel n="06" title="Exportálás" />
-                <div className="flex flex-col gap-1.5">
-                  <ExportBtn onClick={() => downloadOne()}><span>Letöltés — {currentFmt.w}×{currentFmt.h}</span><span className="text-[10px] text-[#6B777C]">{currentFmt.label.toUpperCase()}</span></ExportBtn>
-                  <button onClick={downloadAllZip} disabled={!!zipProgress}
-                    className="mt-2 px-3 py-2.5 text-[12px] font-bold transition-colors flex items-center justify-between"
-                    style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', background: '#2DB5A8', color: '#0B0F10', letterSpacing: '0.04em' }}>
-                    <span>{zipProgress ? `Export ${zipProgress.done}/${zipProgress.total}` : 'Mind exportálása (ZIP)'}</span><span>↓</span>
-                  </button>
-                  {zipProgress && (
-                    <div className="h-0.5 bg-[#1C262A] overflow-hidden">
-                      <div className="h-full bg-[#2DB5A8] transition-all" style={{ width: `${(zipProgress.done / zipProgress.total) * 100}%` }} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          </div>
         </aside>
       </div>
     </div>
@@ -633,35 +528,6 @@ function PortraitLibrary({ portraits, activeId, format, assignments, onUpload, o
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-function FormatPicker({ format, setFormat }) {
-  const groups = ['Facebook', 'Google Ads', 'GDN Banner'];
-  return (
-    <div className="w-full max-w-[520px]">
-      {groups.map(group => (
-        <div key={group} className="mb-2">
-          <div className="text-[9.5px] uppercase tracking-[0.14em] text-[#4B5458] mb-1 font-medium px-1">{group}</div>
-          <div className="flex flex-wrap gap-1">
-            {AD_FORMATS.filter(f => f.group === group).map(f => (
-              <button key={f.id} onClick={() => setFormat(f.id)}
-                className="text-[10.5px] px-2 py-1 transition-colors"
-                style={{
-                  fontFamily: '"DM Sans", sans-serif',
-                  fontWeight: format === f.id ? 600 : 400,
-                  background: format === f.id ? '#2DB5A8' : '#0E1417',
-                  color: format === f.id ? '#060A0D' : '#B8C2C6',
-                  border: '1px solid ' + (format === f.id ? '#2DB5A8' : '#1C262A'),
-                  whiteSpace: 'nowrap',
-                }}>
-                {f.icon} {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

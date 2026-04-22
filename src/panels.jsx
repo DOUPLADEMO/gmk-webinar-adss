@@ -115,20 +115,9 @@ function SettingsPanel({ settings, setSettings, onLogoUpload, hasLogo }) {
         />
       </Row>
 
-      <Row label="Jelvény szövege">
-        <input
-          type="text"
-          value={settings.badgeText || ''}
-          onChange={e => setSettings(s => ({ ...s, badgeText: e.target.value }))}
-          placeholder="INGYENES WEBINÁR"
-          className="text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#4B5458]"
-          style={{ fontFamily: '"DM Sans", sans-serif' }}
-        />
-      </Row>
-
       <div className="flex items-center justify-between py-1">
         <span className="text-[11.5px] text-[#B8C2C6]" style={{ fontFamily: '"DM Sans", sans-serif' }}>
-          Jelvény látható
+          "INGYENES WEBINÁR" jelvény
         </span>
         <Toggle on={settings.showBadge} onChange={v => setSettings(s => ({ ...s, showBadge: v }))} />
       </div>
@@ -280,70 +269,358 @@ Adj vissza CSAK JSON-t, semmi más, pontosan ebben a formában:
   );
 }
 
-function PortraitLibrary({ portraits, activeId, format, assignments, onUpload, onAssign, onRemove, onAutoAssign }) {
-  const inputRef = useRef(null);
-  const currentKey = `${activeId}_${format}`;
-  const assignedId = assignments[currentKey];
+// --------- Creative Panel ---------
+function CreativePanel({ variant, settings, setSettings, format, onGenerated, onModelChange }) {
+  const [apiKey, setApiKey] = React.useState(() => localStorage.getItem('gmk_krea_key') || '');
+  const [model, setModel] = React.useState(() => localStorage.getItem('gmk_krea_model') || 'nano-banana-pro');
+  const [customPrompt, setCustomPrompt] = React.useState('');
+  const [status, setStatus] = React.useState(null); // null | 'generating' | 'polling' | 'done' | 'error'
+  const [statusMsg, setStatusMsg] = React.useState('');
+  const [error, setError] = React.useState(null);
+  const [previewUrl, setPreviewUrl] = React.useState(null);
+
+  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_krea_proxy') || '');
+  const saveKey = v => { setApiKey(v); localStorage.setItem('gmk_krea_key', v); };
+  const saveProxy = v => { setProxyUrl(v); localStorage.setItem('gmk_krea_proxy', v); };
+  const saveModel = v => { setModel(v); localStorage.setItem('gmk_krea_model', v); onModelChange && onModelChange(v); };
+
+  const fmtObj = typeof format === 'object' ? format : null;
+  const W = fmtObj ? fmtObj.w : 1080;
+  const H = fmtObj ? fmtObj.h : (format === '9:16' ? 1920 : 1080);
+
+  const generate = async () => {
+    if (!apiKey.trim()) { setError('Add meg az API kulcsot!'); return; }
+    setStatus('generating'); setError(null); setStatusMsg('Küldés...');
+    try {
+      const prompt = buildCreativePrompt(variant, settings.creativeStyle || 'bold', customPrompt);
+      const url = await kreaGenerate(
+        { apiKey: apiKey.trim(), model, prompt, width: W, height: H, steps: 30 },
+        s => setStatusMsg(s === 'processing' ? 'Generálás...' : s)
+      );
+      if (!url) throw new Error('Nem érkezett vissza kép URL.');
+      setPreviewUrl(url);
+      // Load as image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { onGenerated(img); setStatus('done'); setStatusMsg('Kész!'); };
+      img.onerror = () => { setStatus('done'); setStatusMsg('Kész — de a kép csak direct URL-ként érhető el.'); onGenerated(null, url); };
+      img.src = url;
+    } catch (e) {
+      const msg = e.message || '';
+      let userMsg = msg;
+      if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('networkerror') || msg.toLowerCase().includes('cors')) {
+        userMsg = 'CORS hiba: a Krea API nem engedi a böngészőből érkező kéréseket. Megoldás: adj hozzá CORS proxy-t, vagy hívd az API-t szerver oldalról.';
+      } else if (msg.includes('401') || msg.toLowerCase().includes('unauthorized')) {
+        userMsg = 'Érvénytelen API kulcs (401). Ellenőrizd: krea.ai/settings/api-tokens';
+      } else if (msg.includes('404')) {
+        userMsg = '404 – Endpoint nem található. Lehetséges, hogy a modell neve vagy az API URL megváltozott. Ellenőrizd a Krea docs-ban.';
+      } else if (msg.includes('429')) {
+        userMsg = 'Rate limit (429) – Túl sok kérés. Várj egy percet, majd próbáld újra.';
+      }
+      setError(userMsg);
+      setStatus('error');
+    }
+  };
+
+  const MODELS = [
+    { id: 'nano-banana-pro', label: 'Nano Banana Pro', sub: 'Google · legjobb tipográfia + fotórealizmus' },
+    { id: 'flux',            label: 'Flux',             sub: 'Gyors · sokrétű stílustámogatás' },
+    { id: 'krea-1',          label: 'Krea-1',           sub: 'Krea saját modell' },
+    { id: 'seedream-4',      label: 'Seedream 4',       sub: 'ByteDance · magas minőség' },
+  ];
+
+  const uploadRef = React.useRef(null);
+  const onUpload = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      onGenerated(img);
+      setPreviewUrl(URL.createObjectURL(f));
+      setStatus('done');
+      setStatusMsg('Feltöltve');
+      setError(null);
+    };
+    img.onerror = () => setError('Nem sikerült betölteni a képet.');
+    img.src = URL.createObjectURL(f);
+    e.target.value = '';
+  };
+
+  const autoPrompt = buildCreativePrompt(variant, settings.creativeStyle || 'bold', '');
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex gap-1.5">
-        <button onClick={() => inputRef.current?.click()}
-          className="flex-1 text-[11.5px] text-white bg-[#0E1417] hover:bg-[#111A1D] border border-[#1C262A] px-2.5 py-2 transition-colors">
-          + Portré feltöltés (több is)
+    <div className="flex flex-col gap-4">
+      {/* Upload background image */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium flex items-center justify-between">
+          <span>Saját háttérkép</span>
+          <span className="text-[9px] text-[#4B5458] normal-case tracking-normal">opcionális</span>
+        </div>
+        <input ref={uploadRef} type="file" accept="image/*" className="hidden" onChange={onUpload} />
+        <button
+          onClick={() => uploadRef.current?.click()}
+          className="w-full text-[11.5px] px-3 py-2.5 border border-dashed text-[#B8C2C6] hover:text-white hover:border-[#2DB5A8] transition-colors flex items-center justify-center gap-2"
+          style={{ borderColor: '#2A3438', background: '#0A0E10', fontFamily: '"DM Sans", sans-serif' }}>
+          <span className="text-[#2DB5A8]">↑</span>
+          Tölts fel háttérképet
         </button>
-        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={onUpload} />
-        {portraits.length >= 2 && (
-          <button onClick={onAutoAssign}
-            className="text-[11px] text-[#2DB5A8] bg-transparent border border-[#2DB5A8] hover:bg-[#2DB5A8]/10 px-2 transition-colors">
-            Auto
-          </button>
-        )}
+        <div className="text-[10px] text-[#4B5458] mt-1">Cover-fit az aktuális formátumhoz — nincs API szükséges</div>
       </div>
 
-      {portraits.length === 0 && (
-        <div className="text-[11px] text-[#6B777C] leading-snug border border-dashed border-[#1C262A] p-3">
-          Nincs portré. Tölts fel egyet vagy többet — a stúdió automatikusan a megfelelő méretűt választja a 1:1 és a 9:16 kreatívokhoz.
+      <div className="relative py-1">
+        <div className="absolute inset-x-0 top-1/2 border-t border-[#1C262A]" />
+        <div className="relative flex justify-center">
+          <span className="bg-[#0B0F10] px-3 text-[10px] text-[#4B5458] uppercase tracking-[0.18em]">vagy AI</span>
+        </div>
+      </div>
+
+      {/* API Key */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Krea.ai API kulcs</div>
+        <input
+          type="password"
+          value={apiKey}
+          onChange={e => saveKey(e.target.value)}
+          placeholder="krea-xxxxxxxxxxxxxxxxx"
+          className="w-full text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
+          style={{ fontFamily: '"DM Sans", monospace' }}
+        />
+        <div className="text-[10px] text-[#4B5458] mt-1">krea.ai/settings/api-tokens — localStorage-ban tárolódik</div>
+      </div>
+
+      {/* Model */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Model</div>
+        <div className="flex flex-col gap-1">
+          {MODELS.map(m => (
+            <button key={m.id} onClick={() => saveModel(m.id)}
+              className="text-left px-3 py-2 transition-colors"
+              style={{
+                background: model === m.id ? 'rgba(45,181,168,0.1)' : '#0E1417',
+                border: '1px solid ' + (model === m.id ? '#2DB5A8' : '#1C262A'),
+              }}>
+              <div className="text-[12px] text-white font-medium" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>{m.label}</div>
+              <div className="text-[10px] text-[#6B777C]">{m.sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Style presets */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Vizuális stílus</div>
+        <div className="grid grid-cols-2 gap-1">
+          {CREATIVE_STYLES.map(s => (
+            <button key={s.id}
+              onClick={() => setSettings(prev => ({ ...prev, creativeStyle: s.id }))}
+              className="text-left px-2.5 py-2 transition-colors text-[11.5px]"
+              style={{
+                background: settings.creativeStyle === s.id ? 'rgba(45,181,168,0.12)' : '#0E1417',
+                border: '1px solid ' + (settings.creativeStyle === s.id ? s.accent : '#1C262A'),
+                color: settings.creativeStyle === s.id ? '#FFFFFF' : '#B8C2C6',
+                fontFamily: '"DM Sans", sans-serif',
+                fontWeight: settings.creativeStyle === s.id ? 600 : 400,
+              }}>
+              <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{ background: s.accent }} />
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Prompt */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] font-medium">Prompt</div>
+          {customPrompt && <button onClick={() => setCustomPrompt('')} className="text-[10px] text-[#2DB5A8]">Reset auto</button>}
+        </div>
+        <textarea
+          value={customPrompt || autoPrompt}
+          onChange={e => setCustomPrompt(e.target.value === autoPrompt ? '' : e.target.value)}
+          rows={4}
+          className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] p-2.5 outline-none focus:border-[#2DB5A8] resize-none leading-snug"
+          style={{ fontFamily: '"DM Sans", sans-serif', color: customPrompt ? '#FFFFFF' : '#7A9098' }}
+        />
+        {!customPrompt && <div className="text-[9.5px] text-[#4B5458] mt-0.5">Auto-prompt a stílusból és a headline-ból. Szerkesztd felül.</div>}
+      </div>
+
+      {/* Format info */}
+      <div className="text-[10px] text-[#4B5458] flex items-center gap-1.5">
+        <span className="text-[#2DB5A8]">◆</span>
+        Generál: {W}×{H}px
+      </div>
+
+      {/* Generate button */}
+      <button
+        onClick={generate}
+        disabled={status === 'generating' || status === 'polling'}
+        className="w-full py-3 text-[13px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all"
+        style={{
+          fontFamily: '"Plus Jakarta Sans", sans-serif',
+          background: (status === 'generating' || status === 'polling') ? '#1F8B82' : '#2DB5A8',
+          color: '#060A0D',
+          letterSpacing: '0.04em',
+          opacity: !apiKey.trim() ? 0.5 : 1,
+        }}>
+        {(status === 'generating' || status === 'polling') ? (
+          <><span className="inline-block w-3.5 h-3.5 border-2 border-[#060A0D] border-t-transparent rounded-full animate-spin" />{statusMsg || 'Generálás...'}</>
+        ) : '✦ Generálj hátteret'}
+      </button>
+
+      {error && (
+        <div className="text-[11px] text-[#FF6B6B] border border-[#FF6B6B]/40 bg-[#FF6B6B]/08 p-2.5 leading-snug">
+          {error}
         </div>
       )}
 
-      {portraits.length > 0 && (
-        <>
-          <div className="text-[10px] uppercase tracking-[0.12em] text-[#6B777C]">
-            {activeId} · {format} → válassz portrét
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {portraits.map(p => {
-              const selected = assignedId === p.id;
-              return (
-                <div key={p.id} className="relative group">
-                  <button onClick={() => onAssign(p.id)}
-                    className="w-full aspect-square overflow-hidden transition-all"
-                    style={{
-                      border: '2px solid ' + (selected ? '#2DB5A8' : '#1C262A'),
-                      outline: selected ? '1px solid #2DB5A8' : 'none',
-                      outlineOffset: 2,
-                    }}>
-                    <img src={p.url} alt={p.name} className="w-full h-full object-cover" style={{ display: 'block' }} />
-                  </button>
-                  <button onClick={() => onRemove(p.id)}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#0B1013] border border-[#1C262A] text-[#B8C2C6] hover:text-white hover:border-[#2DB5A8] text-[11px] leading-none opacity-0 group-hover:opacity-100 transition-opacity">
-                    ×
-                  </button>
-                  <div className="text-[9px] text-[#6B777C] mt-0.5 text-center">
-                    {p.w > p.h * 1.2 ? '▭' : p.h > p.w * 1.2 ? '▯' : '■'} {p.w}×{p.h}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-[10px] text-[#4B5458] leading-relaxed">
-            Az Auto gomb minden variánshoz automatikusan beosztja a portrékat formátum szerint: négyzetes képek a Feedhez, fekvő/álló képek a Storyhoz.
-          </div>
-        </>
+      {status === 'done' && previewUrl && (
+        <div>
+          <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Utolsó generált</div>
+          <img src={previewUrl} alt="generated" className="w-full object-cover" style={{ maxHeight: 160, border: '1px solid #1C262A' }} />
+          <a href={previewUrl} target="_blank" rel="noopener" className="text-[10px] text-[#2DB5A8] mt-1 block">Megnyitás teljes méretben ↗</a>
+        </div>
       )}
     </div>
   );
 }
 
-Object.assign(window, { VariantList, SettingsPanel, AIAssistant, Toggle, PortraitLibrary });
+// --------- Studio AI Panel ---------
+function StudioAIPanel({ variant, settings, setSettings, format, onGenerated }) {
+  const [apiKey, setApiKey] = React.useState(() => localStorage.getItem('gmk_krea_key') || '');
+  const [customPrompt, setCustomPrompt] = React.useState('');
+  const [status, setStatus] = React.useState(null);
+  const [statusMsg, setStatusMsg] = React.useState('');
+  const [error, setError] = React.useState(null);
+  const [previewUrl, setPreviewUrl] = React.useState(null);
+
+  const [proxyUrl, setProxyUrl] = React.useState(() => localStorage.getItem('gmk_krea_proxy') || '');
+  const saveKey = v => { setApiKey(v); localStorage.setItem('gmk_krea_key', v); };
+  const saveProxy = v => { setProxyUrl(v); localStorage.setItem('gmk_krea_proxy', v); };
+
+  const fmtObjS = typeof format === 'object' ? format : null;
+  const W = fmtObjS ? fmtObjS.w : 1080;
+  const H = fmtObjS ? fmtObjS.h : (format === '9:16' ? 1920 : 1080);
+
+  const autoPrompt = buildStudioAIPrompt(variant, settings, fmtObjS || { w: W, h: H, platform: settings.platform }, '');
+
+  const generate = async () => {
+    if (!apiKey.trim()) { setError('Add meg a Krea.ai API kulcsot!'); return; }
+    setStatus('generating'); setError(null); setStatusMsg('Küldés...');
+    try {
+      const prompt = customPrompt.trim() || autoPrompt;
+      const url = await kreaGenerate(
+        { apiKey: apiKey.trim(), model: 'nano-banana-pro', prompt, width: W, height: H, steps: 35 },
+        s => setStatusMsg(s === 'processing' ? 'Nano Banana Pro generál...' : s)
+      );
+      if (!url) throw new Error('Nem érkezett vissza kép URL.');
+      setPreviewUrl(url);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { onGenerated(img, 'studio'); setStatus('done'); setStatusMsg('Kész!'); };
+      img.onerror = () => { onGenerated(null, 'studio', url); setStatus('done'); setStatusMsg('Kész (CORS limit: letöltés közvetlen URL-ről)'); };
+      img.src = url;
+    } catch (e) {
+      const msg = e.message || '';
+      let userMsg = msg;
+      if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('cors')) {
+        userMsg = 'CORS hiba: a Krea API böngészőből nem hívható közvetlenül. Szerver-oldali proxy szükséges.';
+      } else if (msg.includes('401')) {
+        userMsg = 'Érvénytelen API kulcs (401) — ellenőrizd: krea.ai/settings/api-tokens';
+      } else if (msg.includes('404')) {
+        userMsg = '404 – Endpoint nem található. Ellenőrizd a Krea docs-ban az aktuális modell nevet.';
+      } else if (msg.includes('429')) {
+        userMsg = 'Rate limit (429) — várj egy percet, majd próbáld újra.';
+      }
+      setError(userMsg);
+      setStatus('error');
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* API Key */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Krea.ai API kulcs</div>
+        <input type="password" value={apiKey} onChange={e => saveKey(e.target.value)}
+          placeholder="krea-xxxxxxxxxxxxxxxxx"
+          className="w-full text-[12px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
+          style={{ fontFamily: 'monospace' }} />
+        <div className="text-[10px] text-[#4B5458] mt-1">krea.ai/settings/api-tokens</div>
+      </div>
+
+      {/* CORS proxy */}
+      <div>
+        <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">CORS Proxy (ha szükséges)</div>
+        <input
+          type="text"
+          value={proxyUrl}
+          onChange={e => saveProxy(e.target.value)}
+          placeholder="https://corsproxy.io/?"
+          className="w-full text-[11px] text-white bg-[#0E1417] border border-[#1C262A] px-3 py-2 outline-none focus:border-[#2DB5A8] placeholder:text-[#3A4A50]"
+          style={{ fontFamily: 'monospace' }}
+        />
+        <div className="text-[9.5px] text-[#4B5458] mt-1 leading-snug">
+          Ha CORS hibát kapsz, add meg a proxy URL-t (pl. https://corsproxy.io/?). Az API URL elé kerül.
+        </div>
+      </div>
+
+      {/* Prompt */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] font-medium">Prompt (Nano Banana Pro)</div>
+          {customPrompt && <button onClick={() => setCustomPrompt('')} className="text-[10px] text-[#2DB5A8]">Reset auto</button>}
+        </div>
+        <textarea
+          value={customPrompt || autoPrompt}
+          onChange={e => setCustomPrompt(e.target.value === autoPrompt ? '' : e.target.value)}
+          rows={8}
+          className="w-full text-[10.5px] bg-[#0E1417] border border-[#1C262A] p-2.5 outline-none focus:border-[#2DB5A8] resize-none leading-snug"
+          style={{
+            fontFamily: '"DM Sans", sans-serif',
+            color: customPrompt ? '#FFFFFF' : '#7A9098',
+          }}
+        />
+        {!customPrompt && (
+          <div className="text-[9.5px] text-[#4B5458] mt-0.5 leading-snug">
+            Auto-prompt: tartalmazza a headline szöveget, brand színeket és a layout instrukciót. Nano Banana Pro beleégeti a szöveget a képbe.
+          </div>
+        )}
+      </div>
+
+      {/* Format info */}
+      <div className="text-[10px] text-[#4B5458] flex items-center gap-1.5 -mt-1">
+        <span className="text-[#2DB5A8]">◆</span>
+        {W}×{H}px · nano-banana-pro · steps: 35
+      </div>
+
+      {/* Generate */}
+      <button onClick={generate}
+        disabled={status === 'generating' || status === 'polling'}
+        className="w-full py-3 text-[13px] font-bold tracking-wide flex items-center justify-center gap-2 transition-all"
+        style={{
+          fontFamily: '"Plus Jakarta Sans", sans-serif',
+          background: (status === 'generating' || status === 'polling') ? '#1F8B82' : '#2DB5A8',
+          color: '#060A0D',
+          opacity: !apiKey.trim() ? 0.5 : 1,
+        }}>
+        {(status === 'generating' || status === 'polling')
+          ? <><span className="inline-block w-3.5 h-3.5 border-2 border-[#060A0D] border-t-transparent rounded-full animate-spin" />{statusMsg}</>
+          : '✦ Generálj kreatívát'}
+      </button>
+
+      {error && (
+        <div className="text-[11px] text-[#FF6B6B] border border-[#FF6B6B]/40 bg-[#FF6B6B]/08 p-2.5 leading-snug">{error}</div>
+      )}
+
+      {status === 'done' && previewUrl && (
+        <div>
+          <div className="text-[10.5px] uppercase tracking-[0.12em] text-[#6B777C] mb-1.5 font-medium">Generált kreativ</div>
+          <img src={previewUrl} alt="generated" className="w-full object-cover" style={{ maxHeight: 180, border: '1px solid #2DB5A8' }} />
+          <a href={previewUrl} target="_blank" rel="noopener" className="text-[10px] text-[#2DB5A8] mt-1 block">Megnyitás teljes méretben ↗</a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { VariantList, SettingsPanel, AIAssistant, Toggle, CreativePanel, StudioAIPanel });
